@@ -6830,6 +6830,15 @@ the plain locale pragma without a parameter (S<C<use locale>>) is in effect.
 #  endif
 #endif
 
+      /* On systems that don't have per-thread locales, even though we don't
+       * think we are changing the locale ourselves, behind the scenes it does
+       * get changed to whatever the thread's should be, so it has to be an
+       * exclusive lock.  By defining it here with this name, we can, for the
+       * most part, hide this detail from the rest of the code */
+#    define LOCALE_READ_LOCK    LOCALE_LOCK_
+#    define LOCALE_READ_UNLOCK  LOCALE_UNLOCK_
+
+
 #ifndef LC_NUMERIC_LOCK
 #  define LC_NUMERIC_LOCK(cond)   NOOP
 #  define LC_NUMERIC_UNLOCK       NOOP
@@ -7205,11 +7214,21 @@ cannot have changed since the precalculation.
 #  define GETENV_UNLOCK   NOOP
 #endif
 
-/* Some critical sections care only that no one else is writing either the
- * locale nor the environment.  XXX This is for the future; in the meantime
- * just use an exclusive lock */
-#define ENVr_LOCALEr_LOCK     ENV_LOCK
-#define ENVr_LOCALEr_UNLOCK   ENV_UNLOCK
+/* Some critical sections need to lock both the locale and the environment from
+ * changing, while allowing for any number of readers.  To avoid deadlock, this
+ * is always done in the same order.  These should always be invoked, like all
+ * locks really, at such a low level that its just a libc call that is wrapped,
+ * so as to prevent recursive calls which could deadlock.  Because
+ * LOCALE_READ_LOCK (q.v.) may actually be an exclusive lock, we do it first,
+ * to minimize the possibility of deadlock. */
+#define ENVr_LOCALEr_LOCK    STMT_START {                           \
+                                LOCALE_READ_LOCK;                   \
+                                ENV_READ_LOCK;                      \
+                             } STMT_END
+#define ENVr_LOCALEr_UNLOCK  STMT_START {                           \
+                                ENV_READ_UNLOCK;                    \
+                                LOCALE_READ_UNLOCK;                 \
+                             } STMT_END
 
 /* Some critical sections are like the above, but there is a shared resource
  * that is written; typically the return is a global static buffer which
@@ -7219,9 +7238,25 @@ cannot have changed since the precalculation.
  * each such buffer, and indeed ones could be split out from this one in the
  * future if experience shows this is throttling performance, but khw believes
  * that the functions where this could be a problem are not likely to be called
- * frequently to warrant this.  'gw' stands for 'global write'. */
-#define gwENVr_LOCALEr_LOCK     ENV_LOCK
-#define gwENVr_LOCALEr_UNLOCK   ENV_UNLOCK
+ * frequently to warrant this.  'gw' stands for 'global write'.
+ *
+ * On some systems, LOCALE_READ_LOCK is a no-op, so we use ENV_LOCK to make
+ * sure it is an exclusive lock.  On other systems LOCALE_READ_LOCK can be an
+ * exclusive lock.  To avoid having two exclusive locks, we use the locale one
+ * for the exclusive lock */
+#ifdef USE_THREAD_SAFE_LOCALE
+#  define gwENVr_LOCALEr_LOCK    ENV_LOCK
+#  define gwENVr_LOCALEr_UNLOCK  ENV_UNLOCK
+#else
+#  define gwENVr_LOCALEr_LOCK   STMT_START {                   \
+                                    LOCALE_LOCK_;              \
+                                    ENV_READ_LOCK;             \
+                                } STMT_END
+#  define gwENVr_LOCALEr_UNLOCK  STMT_START {                  \
+                                    ENV_READ_UNLOCK;           \
+                                    LOCALE_UNLOCK_;            \
+                                 } STMT_END
+#endif
 
 #ifndef PERL_NO_INLINE_FUNCTIONS
 /* Static inline funcs that depend on includes and declarations above.
