@@ -185,6 +185,7 @@ EOF
 my %seenh; # the different prototypes signatures for this function
 my %seena; # the different prototypes signatures for this function in order
 my @seenf; # all the seen functions
+my %seeng; # the flags on this function
 my %seenp; # the different prototype signatures for all functions
 my %seent; # the return type of this function
 my %seens; # the type of this function's "S"
@@ -195,7 +196,7 @@ my %seenu; # the length of the argument list of this function
 while (<DATA>) { # Read in the prototypes.
     next if /^\s+$/;
     chomp;
-    my ($func, $hdr, $type, @p) = split(/\s*\|\s*/, $_, -1);
+    my ($func, $hdr, $type, $flags, @p) = split(/\s*\|\s*/, $_, -1);
     my $u;
     # Split off the real function name and the argument list.
     ($func, $u) = split(' ', $func);
@@ -312,6 +313,7 @@ EOF
         push @{$seena{$func}}, $p;
         $seenp{$p}++;
         $seent{$func} = $type;
+        $seeng{$func} = $flags;
         $seens{$func} = $m{S};
         $seend{$func} = $m{D};
 	$seenm{$func} = \%m;
@@ -654,6 +656,35 @@ EOF
 EOF
 
         # Write out what we have learned.
+
+        if ($seeng{$func}) {
+            my $flags = $seeng{$func};
+            die "Only 'L' flag currently available" unless $flags =~ s/^L//;
+
+            my $name;
+            if ($flags =~ s/e//g) {
+                if ($flags =~ s/l//g) {
+                    $name = "ENVr_LOCALEr";
+                }
+                else {
+                    $name = "ENV_READ";
+                }
+            }
+            elsif ($flags =~ s/l//g) {
+                $name = "LOCALE_READ";
+            }
+
+            die "Only 'e' and/or 'l' locks available" unless $flags eq "";
+
+            my $lock = "${FUNC}_LOCK";
+            my $unlock = "${FUNC}_UNLOCK";
+            push @wrap, <<~EOF;
+            #      undef $lock
+            #      define $lock  ${name}_LOCK
+            #      undef $unlock
+            #      define $unlock  ${name}_UNLOCK
+            EOF
+        }
 	
         my @v = 'a'..'z';
         my $v = join(", ", @v[0..$seenu{$func}-1]);
@@ -1190,49 +1221,49 @@ read_only_bottom_close_and_rename($c);
 #       srandom
 
 # The meanings of the flags are derivable from %map above
-# Fnc, arg flags| hdr   | ? struct type | prototypes...
+# Fnc args-flags| hdr   | ? struct type |flags| prototypes...
 __DATA__
-asctime S	|time	|const struct tm|B_SB|B_SBI|I_SB|I_SBI
-crypt CC	|crypt	|struct crypt_data|B_CCS|B_CCD|D=CRYPTD*
-ctermid	B	|stdio	|		|B_B
-ctime S		|time	|const time_t	|B_SB|B_SBI|I_SB|I_SBI
-endgrent	|grp	|		|I_H|V_H
-endhostent	|netdb	|		|I_D|V_D|D=struct hostent_data*
-endnetent	|netdb	|		|I_D|V_D|D=struct netent_data*
-endprotoent	|netdb	|		|I_D|V_D|D=struct protoent_data*
-endpwent	|pwd	|		|I_H|V_H
-endservent	|netdb	|		|I_D|V_D|D=struct servent_data*
-getgrent	|grp	|struct group	|I_SBWR|I_SBIR|S_SBW|S_SBI|I_SBI|I_SBIH
-getgrgid T	|grp	|struct group	|I_TSBWR|I_TSBIR|I_TSBI|S_TSBI|T=gid_t
-getgrnam C	|grp	|struct group	|I_CSBWR|I_CSBIR|S_CBI|I_CSBI|S_CSBI
-gethostbyaddr CWI	|netdb	|struct hostent	|I_CWISBWRE|S_CWISBWIE|S_CWISBIE|S_TWISBIE|S_CIISBIE|S_CSBIE|S_TSBIE|I_CWISD|I_CIISD|I_CII|I_TsISBWRE|D=struct hostent_data*|T=const void*|s=socklen_t
-gethostbyname C	|netdb	|struct hostent	|I_CSBWRE|S_CSBIE|I_CSD|D=struct hostent_data*
-gethostent	|netdb	|struct hostent	|I_SBWRE|I_SBIE|S_SBIE|S_SBI|I_SBI|I_SD|D=struct hostent_data*
-getlogin	|unistd	|char		|I_BW|I_BI|B_BW|B_BI
-getnetbyaddr LI	|netdb	|struct netent	|I_UISBWRE|I_LISBI|S_TISBI|S_LISBI|I_TISD|I_LISD|I_IISD|I_uISBWRE|D=struct netent_data*|T=in_addr_t|U=unsigned long|u=uint32_t
-getnetbyname C	|netdb	|struct netent	|I_CSBWRE|I_CSBI|S_CSBI|I_CSD|D=struct netent_data*
-getnetent	|netdb	|struct netent	|I_SBWRE|I_SBIE|S_SBIE|S_SBI|I_SBI|I_SD|D=struct netent_data*
-getprotobyname C|netdb	|struct protoent|I_CSBWR|S_CSBI|I_CSD|D=struct protoent_data*
-getprotobynumber I	|netdb	|struct protoent|I_ISBWR|S_ISBI|I_ISD|D=struct protoent_data*
-getprotoent	|netdb	|struct protoent|I_SBWR|I_SBI|S_SBI|I_SD|D=struct protoent_data*
-getpwent	|pwd	|struct passwd	|I_SBWR|I_SBIR|S_SBW|S_SBI|I_SBI|I_SBIH
-getpwnam C	|pwd	|struct passwd	|I_CSBWR|I_CSBIR|S_CSBI|I_CSBI
-getpwuid T	|pwd	|struct passwd	|I_TSBWR|I_TSBIR|I_TSBI|S_TSBI|T=uid_t
-getservbyname CC|netdb	|struct servent	|I_CCSBWR|S_CCSBI|I_CCSD|D=struct servent_data*
-getservbyport IC|netdb	|struct servent	|I_ICSBWR|S_ICSBI|I_ICSD|D=struct servent_data*
-getservent	|netdb	|struct servent	|I_SBWR|I_SBI|S_SBI|I_SD|D=struct servent_data*
-getspnam C	|shadow	|struct spwd	|I_CSBWR|S_CSBI
-gmtime T	|time	|struct tm 	|S_TS|T=time_t*
-localtime T	|time	|struct tm 	|S_TS|T=time_t*
-readdir T	|dirent	|struct dirent	|I_TSR|I_TS|T=DIR*
-readdir64 T	|dirent	|struct dirent64|I_TSR|I_TS|T=DIR*
-setgrent	|grp	|		|I_H|V_H
-sethostent I	|netdb	|		|I_ID|V_ID|D=struct hostent_data*
-setlocale IC	|locale	|		|I_ICBI
-setnetent I	|netdb	|		|I_ID|V_ID|D=struct netent_data*
-setprotoent I	|netdb	|		|I_ID|V_ID|D=struct protoent_data*
-setpwent	|pwd	|		|I_H|V_H
-setservent I	|netdb	|		|I_ID|V_ID|D=struct servent_data*
-strerror I	|string	|		|I_IBW|I_IBI|B_IBW
-tmpnam B	|stdio	|		|B_B
-ttyname	I	|unistd	|		|I_IBW|I_IBI|B_IBI
+asctime S	|time	|const struct tm|Ll|B_SB|B_SBI|I_SB|I_SBI
+crypt CC	|crypt	|struct crypt_data||B_CCS|B_CCD|D=CRYPTD*
+ctermid	B	|stdio	|		||B_B
+ctime S		|time	|const time_t	||B_SB|B_SBI|I_SB|I_SBI
+endgrent	|grp	|		||I_H|V_H
+endhostent	|netdb	|		||I_D|V_D|D=struct hostent_data*
+endnetent	|netdb	|		||I_D|V_D|D=struct netent_data*
+endprotoent	|netdb	|		||I_D|V_D|D=struct protoent_data*
+endpwent	|pwd	|		||I_H|V_H
+endservent	|netdb	|		||I_D|V_D|D=struct servent_data*
+getgrent	|grp	|struct group	||I_SBWR|I_SBIR|S_SBW|S_SBI|I_SBI|I_SBIH
+getgrgid T	|grp	|struct group	||I_TSBWR|I_TSBIR|I_TSBI|S_TSBI|T=gid_t
+getgrnam C	|grp	|struct group	||I_CSBWR|I_CSBIR|S_CBI|I_CSBI|S_CSBI
+gethostbyaddr CWI	|netdb	|struct hostent	|Lel|I_CWISBWRE|S_CWISBWIE|S_CWISBIE|S_TWISBIE|S_CIISBIE|S_CSBIE|S_TSBIE|I_CWISD|I_CIISD|I_CII|I_TsISBWRE|D=struct hostent_data*|T=const void*|s=socklen_t
+gethostbyname C	|netdb	|struct hostent	|Lel|I_CSBWRE|S_CSBIE|I_CSD|D=struct hostent_data*
+gethostent	|netdb	|struct hostent	||I_SBWRE|I_SBIE|S_SBIE|S_SBI|I_SBI|I_SD|D=struct hostent_data*
+getlogin	|unistd	|char		||I_BW|I_BI|B_BW|B_BI
+getnetbyaddr LI	|netdb	|struct netent	|Ll|I_UISBWRE|I_LISBI|S_TISBI|S_LISBI|I_TISD|I_LISD|I_IISD|I_uISBWRE|D=struct netent_data*|T=in_addr_t|U=unsigned long|u=uint32_t
+getnetbyname C	|netdb	|struct netent	|Ll|I_CSBWRE|I_CSBI|S_CSBI|I_CSD|D=struct netent_data*
+getnetent	|netdb	|struct netent	||I_SBWRE|I_SBIE|S_SBIE|S_SBI|I_SBI|I_SD|D=struct netent_data*
+getprotobyname C|netdb	|struct protoent|Ll|I_CSBWR|S_CSBI|I_CSD|D=struct protoent_data*
+getprotobynumber I	|netdb	|struct protoent|Ll|I_ISBWR|S_ISBI|I_ISD|D=struct protoent_data*
+getprotoent	|netdb	|struct protoent|Ll|I_SBWR|I_SBI|S_SBI|I_SD|D=struct protoent_data*
+getpwent	|pwd	|struct passwd	||I_SBWR|I_SBIR|S_SBW|S_SBI|I_SBI|I_SBIH
+getpwnam C	|pwd	|struct passwd	|Ll|I_CSBWR|I_CSBIR|S_CSBI|I_CSBI
+getpwuid T	|pwd	|struct passwd	|Ll|I_TSBWR|I_TSBIR|I_TSBI|S_TSBI|T=uid_t
+getservbyname CC|netdb	|struct servent	|Ll|I_CCSBWR|S_CCSBI|I_CCSD|D=struct servent_data*
+getservbyport IC|netdb	|struct servent	|Ll|I_ICSBWR|S_ICSBI|I_ICSD|D=struct servent_data*
+getservent	|netdb	|struct servent	|Ll|I_SBWR|I_SBI|S_SBI|I_SD|D=struct servent_data*
+getspnam C	|shadow	|struct spwd	|Ll|I_CSBWR|S_CSBI
+gmtime T	|time	|struct tm 	|Lel|S_TS|T=time_t*
+localtime T	|time	|struct tm 	||S_TS|T=time_t*
+readdir T	|dirent	|struct dirent	||I_TSR|I_TS|T=DIR*
+readdir64 T	|dirent	|struct dirent64||I_TSR|I_TS|T=DIR*
+setgrent	|grp	|		||I_H|V_H
+sethostent I	|netdb	|		||I_ID|V_ID|D=struct hostent_data*
+setlocale IC	|locale	|		||I_ICBI
+setnetent I	|netdb	|		||I_ID|V_ID|D=struct netent_data*
+setprotoent I	|netdb	|		||I_ID|V_ID|D=struct protoent_data*
+setpwent	|pwd	|		||I_H|V_H
+setservent I	|netdb	|		||I_ID|V_ID|D=struct servent_data*
+strerror I	|string	|		||I_IBW|I_IBI|B_IBW
+tmpnam B	|stdio	|		||B_B
+ttyname	I	|unistd	|		||I_IBW|I_IBI|B_IBI
