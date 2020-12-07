@@ -3074,7 +3074,9 @@ S_my_nl_langinfo(const int item, bool toggle)
                     /* If 'len' is non-zero, it means that we had a case like
                      * %p which means the current locale doesn't use a.m. or
                      * p.m., and that is valid */
-                    if (len == 0) {
+                    if (len != 0) {
+                        break;
+                    }
 
                         /* Here, still didn't work.  If we get well beyond a
                          * reasonable size, bail out to prevent an infinite
@@ -3082,18 +3084,14 @@ S_my_nl_langinfo(const int item, bool toggle)
 
                         if (PL_langinfo_bufsize > 100 * format_size) {
                             *PL_langinfo_buf = '\0';
+                            break;
                         }
-                        else {
                             /* Double the buffer size to retry;  Add 1 in case
                              * original was 0, so we aren't stuck at 0.  */
                             PL_langinfo_bufsize *= 2;
                             PL_langinfo_bufsize++;
                             Renew(PL_langinfo_buf, PL_langinfo_bufsize, char);
-                            continue;
-                        }
                     }
-
-                    break;
                 }
 
                 /* Here, we got a result.
