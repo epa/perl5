@@ -3042,9 +3042,13 @@ S_my_nl_langinfo(const int item, bool toggle)
 
                 /* We can't use my_strftime() because it doesn't look at
                  * tm_wday  */
-                while (0 == strftime(PL_langinfo_buf, PL_langinfo_bufsize,
-                                     format, &tm))
-                {
+                while (1) {
+                    if (strftime(PL_langinfo_buf, PL_langinfo_bufsize,
+                                 format, &tm))
+                    {
+                        break;    /* Succeeded */
+                    }
+
                     /* A zero return means one of:
                      *  a)  there wasn't enough space in PL_langinfo_buf
                      *  b)  the format, like a plain %p, returns empty
@@ -3091,7 +3095,6 @@ S_my_nl_langinfo(const int item, bool toggle)
                             PL_langinfo_bufsize *= 2;
                             PL_langinfo_bufsize++;
                             Renew(PL_langinfo_buf, PL_langinfo_bufsize, char);
-                    }
                 }
 
                 /* Here, we got a result.
