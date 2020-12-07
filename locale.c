@@ -3043,9 +3043,15 @@ S_my_nl_langinfo(const int item, bool toggle)
                 /* We can't use my_strftime() because it doesn't look at
                  * tm_wday  */
                 while (1) {
-                    if (strftime(PL_langinfo_buf, PL_langinfo_bufsize,
-                                 format, &tm))
-                    {
+                    Size_t resultant_byte_count;
+
+                    STRFTIME_LOCK;
+                    resultant_byte_count = strftime(PL_langinfo_buf,
+                                                    PL_langinfo_bufsize,
+                                                    format, &tm);
+                    STRFTIME_UNLOCK;
+
+                    if (resultant_byte_count) {
                         break;    /* Succeeded */
                     }
 
@@ -3069,9 +3075,11 @@ S_my_nl_langinfo(const int item, bool toggle)
                     Newx(temp_result, PL_langinfo_bufsize, char);
                     *mod_format = ' ';
                     my_strlcpy(mod_format + 1, format, mod_size);
+                    STRFTIME_LOCK;
                     len = strftime(temp_result,
                                    PL_langinfo_bufsize,
                                    mod_format, &tm);
+                    STRFTIME_UNLOCK;
                     Safefree(mod_format);
                     Safefree(temp_result);
 
