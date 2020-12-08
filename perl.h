@@ -7205,6 +7205,24 @@ cannot have changed since the precalculation.
 #  define GETENV_UNLOCK   NOOP
 #endif
 
+/* Some critical sections care only that no one else is writing either the
+ * locale nor the environment.  XXX This is for the future; in the meantime
+ * just use an exclusive lock */
+#define ENVr_LOCALEr_LOCK     ENV_LOCK
+#define ENVr_LOCALEr_UNLOCK   ENV_UNLOCK
+
+/* Some critical sections are like the above, but there is a shared resource
+ * that is written; typically the return is a global static buffer which
+ * another thread could overwrite at any moment, if not locked out.  But it
+ * could be an internal shared buffer used in calculations.  Hence, an
+ * exclusive lock is required.  Ideally there would be a separate mutex for
+ * each such buffer, and indeed ones could be split out from this one in the
+ * future if experience shows this is throttling performance, but khw believes
+ * that the functions where this could be a problem are not likely to be called
+ * frequently to warrant this.  'gw' stands for 'global write'. */
+#define gwENVr_LOCALEr_LOCK     ENV_LOCK
+#define gwENVr_LOCALEr_UNLOCK   ENV_UNLOCK
+
 #ifndef PERL_NO_INLINE_FUNCTIONS
 /* Static inline funcs that depend on includes and declarations above.
    Some of these reference functions in the perl object files, and some
@@ -7225,24 +7243,6 @@ START_EXTERN_C
 END_EXTERN_C
 
 #endif
-
-/* Some critical sections care only that no one else is writing either the
- * locale nor the environment.  XXX This is for the future; in the meantime
- * just use an exclusive lock */
-#define ENVr_LOCALEr_LOCK     ENV_LOCK
-#define ENVr_LOCALEr_UNLOCK   ENV_UNLOCK
-
-/* Some critical sections are like the above, but there is a shared resource
- * that is written; typically the return is a global static buffer which
- * another thread could overwrite at any moment, if not locked out.  But it
- * could be an internal shared buffer used in calculations.  Hence, an
- * exclusive lock is required.  Ideally there would be a separate mutex for
- * each such buffer, and indeed ones could be split out from this one in the
- * future if experience shows this is throttling performance, but khw believes
- * that the functions where this could be a problem are not likely to be called
- * frequently to warrant this.  'gw' stands for 'global write'. */
-#define gwENVr_LOCALEr_LOCK     ENV_LOCK
-#define gwENVr_LOCALEr_UNLOCK   ENV_UNLOCK
 
 #define Atof				my_atof
 
