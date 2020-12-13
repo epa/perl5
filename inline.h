@@ -2575,6 +2575,7 @@ Perl_foldEQ_locale(const char *s1, const char *s2, I32 len)
 {
     const U8 *a = (const U8 *)s1;
     const U8 *b = (const U8 *)s2;
+    dTHX;
 
     PERL_ARGS_ASSERT_FOLDEQ_LOCALE;
 
