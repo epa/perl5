@@ -5130,6 +5130,8 @@ PERL_STATIC_INLINE const char *	S_save_to_buffer(const char * string, char **buf
 #  if defined(USE_LOCALE)
 STATIC const char*	S_category_name(const int category);
 #define PERL_ARGS_ASSERT_CATEGORY_NAME
+STATIC unsigned int	S_get_category_index(const int category, const char * locale);
+#define PERL_ARGS_ASSERT_GET_CATEGORY_INDEX
 STATIC void	S_new_collate(pTHX_ const char* newcoll);
 #define PERL_ARGS_ASSERT_NEW_COLLATE
 STATIC void	S_new_ctype(pTHX_ const char* newctype);
@@ -5147,7 +5149,7 @@ STATIC char*	S_stdize_locale(pTHX_ char* locs);
 STATIC const char*	S_switch_category_locale_to_template(pTHX_ const int switch_category, const int template_category, const char * template_locale);
 #define PERL_ARGS_ASSERT_SWITCH_CATEGORY_LOCALE_TO_TEMPLATE
 #    if defined(USE_POSIX_2008_LOCALE)
-STATIC const char*	S_emulate_setlocale(const int category, const char* locale, unsigned int index, const bool is_index_valid);
+STATIC const char*	S_emulate_setlocale(const unsigned int index, const char* locale);
 #define PERL_ARGS_ASSERT_EMULATE_SETLOCALE
 #    endif
 #    if defined(WIN32)

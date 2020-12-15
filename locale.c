@@ -210,10 +210,11 @@ STATIC const int categories[] = {
 #    endif
 #    ifdef LC_ALL
                              LC_ALL,
-#    endif
-                            -1  /* Placeholder because C doesn't allow a
-                                   trailing comma, and it would get complicated
-                                   with all the #ifdef's */
+#  endif
+
+   /* Placeholder as a precaution if code fails to check the return of
+    * get_category_index(), which returns this element to indicate an error */
+                            -1
 };
 
 /* The top-most real element is LC_ALL */
@@ -261,9 +262,12 @@ STATIC const char * const category_names[] = {
 #    endif
 #    ifdef LC_ALL
                                  "LC_ALL",
-#    endif
-                                 NULL  /* Placeholder */
-                            };
+#  endif
+
+   /* Placeholder as a precaution if code fails to check the return of
+    * get_category_index(), which returns this element to indicate an error */
+                                 NULL
+};
 
 #  ifdef LC_ALL
 
@@ -286,6 +290,49 @@ STATIC const char * const category_names[] = {
  * element at 'LC_ALL_INDEX_' except on platforms that have it.  This can be
  * checked for at compile time by using the #define LC_ALL_INDEX_ which is only
  * defined if we do have LC_ALL. */
+
+STATIC unsigned int
+S_get_category_index(const int category, const char * locale)
+{
+    /* Given a category, return the equivalent internal index we generally use
+     * instead.
+     *
+     * Some sort of hash could be used instead of this loop, but the number of
+     * elements is so far at most 12 */
+
+    unsigned int i;
+
+    PERL_ARGS_ASSERT_GET_CATEGORY_INDEX;
+
+#  ifdef LC_ALL
+    for (i = 0; i <=         LC_ALL_INDEX_; i++)
+#  else
+    for (i = 0; i <  NOMINAL_LC_ALL_INDEX;  i++)
+#  endif
+    {
+        if (category == categories[i]) {
+            DEBUG_Lv(PerlIO_printf(Perl_debug_log,
+                     "%s:%d: index of category %d (%s) is %d\n",
+                     __FILE__, __LINE__, category, category_names[i], i));
+            return i;
+        }
+    }
+
+    {
+        dTHX;
+
+        /* Here, we don't know about this category, so can't handle it. */
+        if (! locale) {
+            locale = "(unknown)";
+        }
+        Perl_warner(aTHX_ packWARN(WARN_LOCALE),
+                            "Unknown locale category %d; can't set it to %s\n",
+                                                     category, locale);
+    }
+
+    /* Return an out-of-bounds value */
+    return NOMINAL_LC_ALL_INDEX + 1;
+}
 
 STATIC const char *
 S_category_name(const int category)
@@ -357,8 +404,9 @@ S_category_name(const int category)
  * search through the array (as the actual numbers may not be small contiguous
  * positive integers which would lend themselves to array lookup). */
 #  define do_setlocale_c(cat, locale)                                       \
-                        emulate_setlocale(cat, locale, cat ## _INDEX_, TRUE)
-#  define do_setlocale_r(cat, locale) emulate_setlocale(cat, locale, 0, FALSE)
+                        emulate_setlocale(cat ## _INDEX_, locale)
+#  define do_setlocale_r(cat, locale)                                       \
+                emulate_setlocale(get_category_index(cat, locale), locale)
 
 #  if ! defined(__GLIBC__) || ! defined(USE_LOCALE_MESSAGES)
 
@@ -423,15 +471,15 @@ STATIC const int category_masks[] = {
                                  * here, so compile it in unconditionally.
                                  * This could catch some glitches at compile
                                  * time */
-                                LC_ALL_MASK
+                                LC_ALL_MASK,
+
+   /* Placeholder as a precaution if code fails to check the return of
+    * get_category_index(), which returns this element to indicate an error */
+                                0
                             };
 
 STATIC const char *
-S_emulate_setlocale(const int category,
-                    const char * locale,
-                    unsigned int index,
-                    const bool is_index_valid
-                   )
+S_emulate_setlocale(const unsigned int index, const char * locale)
 {
     /* This function effectively performs a setlocale() on just the current
      * thread; thus it is thread-safe.  It does this by using the POSIX 2008
@@ -470,46 +518,19 @@ S_emulate_setlocale(const int category,
      * think should happen for "".
      */
 
-    int mask;
     locale_t old_obj;
     locale_t new_obj;
+    int mask;
+    int category;
+    locale_t cur_obj = uselocale((locale_t) 0);
     dTHX;
 
-    DEBUG_Lv(PerlIO_printf(Perl_debug_log,
-             "%s:%d: emulate_setlocale input=%d (%s), \"%s\", %d, %d\n",
-             __FILE__, __LINE__, category, category_name(category), locale,
-             index, is_index_valid));
-
-    /* If the input mask might be incorrect, calculate the correct one */
-    if (! is_index_valid) {
-        unsigned int i;
-
-        DEBUG_Lv(PerlIO_printf(Perl_debug_log,
-                 "%s:%d: finding index of category %d (%s)\n",
-                 __FILE__, __LINE__, category, category_name(category)));
-
-        for (i = 0; i <= LC_ALL_INDEX_; i++) {
-            if (category == categories[i]) {
-                index = i;
-                goto found_index;
-            }
-        }
-
-        /* Here, we don't know about this category, so can't handle it.
-         * Fallback to the early POSIX usages */
-        Perl_warner(aTHX_ packWARN(WARN_LOCALE),
-                            "Unknown locale category %d; can't set it to %s\n",
-                                                     category, locale);
+    if (index > NOMINAL_LC_ALL_INDEX) { /* Out-of bounds */
         return NULL;
-
-      found_index: ;
-
-        DEBUG_Lv(PerlIO_printf(Perl_debug_log,
-                 "%s:%d: index is %d for %s\n",
-                 __FILE__, __LINE__, index, category_name(category)));
     }
 
     mask = category_masks[index];
+    category = categories[index];
 
     DEBUG_Lv(PerlIO_printf(Perl_debug_log,
              "%s:%d: category name is %s; mask is 0x%x\n",
@@ -743,7 +764,7 @@ S_emulate_setlocale(const int category,
                                                 && strNE(env_override, ""))
                                                ? env_override
                                                : default_name;
-                    if (! emulate_setlocale(categories[i], this_locale, i, TRUE))
+                    if (! emulate_setlocale(i, this_locale))
                     {
                         return NULL;
                     }
@@ -768,7 +789,7 @@ S_emulate_setlocale(const int category,
                      * to update our records, and we've just done that for the
                      * individual categories in the loop above, and doing so
                      * would cause LC_ALL to be done as well */
-                    return emulate_setlocale(LC_ALL, NULL, LC_ALL_INDEX_, TRUE);
+                    return emulate_setlocale(LC_ALL_INDEX_, NULL);
                 }
             }
         }
@@ -794,7 +815,7 @@ S_emulate_setlocale(const int category,
          * all the individual categories to "C", and override the furnished
          * ones below */
         for (i = 0; i < LC_ALL_INDEX_; i++) {
-            if (! emulate_setlocale(categories[i], "C", i, TRUE)) {
+            if (! emulate_setlocale(i, "C")) {
                 return NULL;
             }
         }
@@ -854,7 +875,7 @@ S_emulate_setlocale(const int category,
                 assert(category == LC_ALL);
                 individ_locale = Perl_form(aTHX_ "%.*s",
                                     (int) (name_end - name_start), name_start);
-                if (! emulate_setlocale(categories[i], individ_locale, i, TRUE))
+                if (! emulate_setlocale(i, individ_locale))
                 {
                     return NULL;
                 }

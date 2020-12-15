@@ -3210,6 +3210,7 @@ SG   |bool   |sv_derived_from_svpvn  |NULLOK SV *sv			\
 #if defined(PERL_IN_LOCALE_C)
 #  ifdef USE_LOCALE
 ST	|const char*|category_name |const int category
+ST	|unsigned int|get_category_index|const int category|NULLOK const char * locale
 S	|const char*|switch_category_locale_to_template|const int switch_category|const int template_category|NULLOK const char * template_locale
 S	|void	|restore_switched_locale|const int category|NULLOK const char * const original_locale
 #  endif
@@ -3229,10 +3230,8 @@ S	|void	|new_ctype	|NN const char* newctype
 S	|void	|set_numeric_radix|const bool use_locale
 S	|void	|new_numeric	|NULLOK const char* newnum
 #    ifdef USE_POSIX_2008_LOCALE
-ST	|const char*|emulate_setlocale|const int category		\
-				    |NULLOK const char* locale		\
-				    |unsigned int index			\
-				    |const bool is_index_valid
+ST	|const char*|emulate_setlocale|const unsigned int index		\
+				    |NULLOK const char* locale
 #    endif
 #    ifdef WIN32
 S	|char*	|win32_setlocale|int category|NULLOK const char* locale
