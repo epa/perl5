@@ -294,8 +294,10 @@ my_mini_mktime(struct tm *ptm)
     ptm->tm_wday = (jday + WEEKDAY_BIAS) % 7;
 }
 
-#   if defined(WIN32) || (defined(__QNX__) && defined(__WATCOMC__))
-#       define strncasecmp(x,y,n) strnicmp(x,y,n)
+#  ifdef foldEQ_locale
+#     define strncasecmp(x,y,n) foldEQ_locale(x,y,n)
+#  elif defined(WIN32) || (defined(__QNX__) && defined(__WATCOMC__))
+#     define strncasecmp(x,y,n) strnicmp(x,y,n)
 #   endif
 
 /* strptime.c    0.1 (Powerdog) 94/03/27 */
