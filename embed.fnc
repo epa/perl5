@@ -3229,6 +3229,7 @@ S	|void	|new_collate	|NULLOK const char* newcoll
 S	|void	|new_ctype	|NN const char* newctype
 S	|void	|set_numeric_radix|const bool use_locale
 S	|void	|new_numeric	|NULLOK const char* newnum
+S	|void	|new_LC_ALL	|NULLOK const char* newnum
 #    ifdef USE_POSIX_2008_LOCALE
 ST	|const char*|emulate_setlocale|const unsigned int index		\
 				    |NULLOK const char* locale
