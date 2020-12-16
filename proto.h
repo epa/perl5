@@ -5149,6 +5149,8 @@ STATIC char*	S_stdize_locale(pTHX_ char* locs);
 STATIC const char*	S_switch_category_locale_to_template(pTHX_ const int switch_category, const int template_category, const char * template_locale);
 #define PERL_ARGS_ASSERT_SWITCH_CATEGORY_LOCALE_TO_TEMPLATE
 #    if defined(USE_POSIX_2008_LOCALE)
+STATIC const char*	S_do_querylocale(const unsigned int index);
+#define PERL_ARGS_ASSERT_DO_QUERYLOCALE
 STATIC const char*	S_emulate_setlocale(const unsigned int index, const char* locale);
 #define PERL_ARGS_ASSERT_EMULATE_SETLOCALE
 #    endif

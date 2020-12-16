@@ -460,49 +460,25 @@ STATIC const int category_masks[] = {
 };
 
 STATIC const char *
-S_emulate_setlocale(const unsigned int index, const char * locale)
+S_do_querylocale(const unsigned int index)
 {
-    /* This function effectively performs a setlocale() on just the current
-     * thread; thus it is thread-safe.  It does this by using the POSIX 2008
-     * locale functions to emulate the behavior of setlocale().  Similar to
-     * regular setlocale(), the return from this function points to memory that
-     * can be overwritten by other system calls, so needs to be copied
-     * immediately if you need to retain it.  The difference here is that
-     * system calls besides another setlocale() can overwrite it.
-     *
-     * By doing this, most locale-sensitive functions become thread-safe.  The
-     * exceptions are mostly those that return a pointer to static memory.
-     *
-     * This function takes the same parameters, 'category' and 'locale', that
-     * the regular setlocale() function does, but it also takes two additional
-     * ones.  This is because the 2008 functions don't use a category; instead
-     * they use a corresponding mask.  Because this function operates in both
-     * worlds, it may need one or the other or both.  This function can
-     * calculate the mask from the input category, but to avoid this
-     * calculation, if the caller knows at compile time what the mask is, it
-     * can pass it, setting 'is_index_valid' to TRUE; otherwise the mask
-     * parameter is ignored.
+    /* This function returns the name of the locale category given by the input
+     * index into our parallel tables of them.
      *
      * POSIX 2008, for some sick reason, chose not to provide a method to find
-     * the category name of a locale.  Some vendors have created a
-     * querylocale() function to do just that.  This function is a lot simpler
-     * to implement on systems that have this.  Otherwise, we have to keep
-     * track of what the locale has been set to, so that we can return its
-     * name to emulate setlocale().  It's also possible for C code in some
+     * the category name of a locale, discarding a basic linguistic tenet that
+     * for any object, people will create a name for it.  Some vendors have
+     * created a querylocale() function to do just that.  This function is a
+     * lot simpler to implement on systems that have this.  Otherwise, we have
+     * to keep track of what the locale has been set to, so that we can return
+     * its name to emulate setlocale().  It's also possible for C code in some
      * library to change the locale without us knowing it, though as of
      * September 2017, there are no occurrences in CPAN of uselocale().  Some
      * libraries do use setlocale(), but that changes the global locale, and
-     * threads using per-thread locales will just ignore those changes.
-     * Another problem is that without querylocale(), we have to guess at what
-     * was meant by setting a locale of "".  We handle this by not actually
-     * ever setting to "" (unless querylocale exists), but to emulate what we
-     * think should happen for "".
-     */
+     * threads using per-thread locales will just ignore those changes. */
 
-    locale_t old_obj;
-    locale_t new_obj;
-    int mask;
     int category;
+    int mask;
     locale_t cur_obj = uselocale((locale_t) 0);
     dTHX;
 
@@ -513,30 +489,20 @@ S_emulate_setlocale(const unsigned int index, const char * locale)
     mask = category_masks[index];
     category = categories[index];
 
-    DEBUG_Lv(PerlIO_printf(Perl_debug_log,
-             "%s:%d: category name is %s; mask is 0x%x\n",
-             __FILE__, __LINE__, category_names[index], mask));
-
-    /* If just querying what the existing locale is ... */
-    if (locale == NULL) {
-        locale_t cur_obj = uselocale((locale_t) 0);
-
-        DEBUG_Lv(PerlIO_printf(Perl_debug_log,
-                 "%s:%d: emulate_setlocale querying %p\n",
-                 __FILE__, __LINE__, cur_obj));
-
-        if (cur_obj == LC_GLOBAL_LOCALE) {
-            return my_setlocale(category, NULL);
-        }
+    DEBUG_Lv(PerlIO_printf(Perl_debug_log, "%s:%d: do_querylocale %p\n",
+                                           __FILE__, __LINE__, cur_obj));
+    if (cur_obj == LC_GLOBAL_LOCALE) {
+        return my_setlocale(category, NULL);
+    }
 
 #    ifdef HAS_QUERYLOCALE
 
-        return (char *) querylocale(mask, cur_obj);
+    return (char *) querylocale(mask, cur_obj);
 
 #    else
 
-        /* If this assert fails, adjust the size of curlocales in intrpvar.h */
-        STATIC_ASSERT_STMT(C_ARRAY_LENGTH(PL_curlocales) > LC_ALL_INDEX_);
+    /* If this assert fails, adjust the size of curlocales in intrpvar.h */
+    STATIC_ASSERT_STMT(C_ARRAY_LENGTH(PL_curlocales) > LC_ALL_INDEX_);
 
 #      if   defined(_NL_LOCALE_NAME)                                        \
      &&   defined(DEBUGGING)                                                \
@@ -574,101 +540,140 @@ S_emulate_setlocale(const unsigned int index, const char * locale)
                                  " (%s) and what internal glibc thinks"
                                  " (%s)\n", category_names[index],
                                  PL_curlocales[index], temp_name);
-                }
-
-                return temp_name;
             }
+
+            return temp_name;
         }
+    }
 
 #      endif
 
-        /* Without querylocale(), we have to use our record-keeping we've
-         *  done. */
-
-        if (category != LC_ALL) {
+    /* Without querylocale(), we have to use our record-keeping we've
+     *  done. */
+    if (category != LC_ALL) {
 
             DEBUG_Lv(PerlIO_printf(Perl_debug_log,
-                     "%s:%d: emulate_setlocale returning %s\n",
+                     "%s:%d: do_querylocale returning %s\n",
                      __FILE__, __LINE__, PL_curlocales[index]));
 
-            return PL_curlocales[index];
-        }
-        else {  /* For LC_ALL */
-            unsigned int i;
-            Size_t names_len = 0;
-            char * all_string;
-            bool are_all_categories_the_same_locale = TRUE;
+        return PL_curlocales[index];
+    }
+    else {  /* For LC_ALL */
+        unsigned int i;
+        Size_t names_len = 0;
+        char * all_string;
+        bool are_all_categories_the_same_locale = TRUE;
 
-            /* If we have a valid LC_ALL value, just return it */
-            if (PL_curlocales[LC_ALL_INDEX_]) {
+        /* If we have a valid LC_ALL value, just return it */
+        if (PL_curlocales[LC_ALL_INDEX_]) {
 
                 DEBUG_Lv(PerlIO_printf(Perl_debug_log,
-                         "%s:%d: emulate_setlocale returning %s\n",
+                         "%s:%d: do_querylocale returning %s\n",
                          __FILE__, __LINE__, PL_curlocales[LC_ALL_INDEX_]));
 
-                return PL_curlocales[LC_ALL_INDEX_];
-            }
-
-            /* Otherwise, we need to construct a string of name=value pairs.
-             * We use the glibc syntax, like
-             *      LC_NUMERIC=C;LC_TIME=en_US.UTF-8;...
-             *  First calculate the needed size.  Along the way, check if all
-             *  the locale names are the same */
-            for (i = 0; i < LC_ALL_INDEX_; i++) {
-
-                DEBUG_Lv(PerlIO_printf(Perl_debug_log,
-                         "%s:%d: emulate_setlocale i=%d, name=%s, locale=%s\n",
-                         __FILE__, __LINE__, i, category_names[i],
-                         PL_curlocales[i]));
-
-                names_len += strlen(category_names[i])
-                          + 1                       /* '=' */
-                          + strlen(PL_curlocales[i])
-                          + 1;                      /* ';' */
-
-                if (i > 0 && strNE(PL_curlocales[i], PL_curlocales[i-1])) {
-                    are_all_categories_the_same_locale = FALSE;
-                }
-            }
-
-            /* If they are the same, we don't actually have to construct the
-             * string; we just make the entry in LC_ALL_INDEX_ valid, and be
-             * that single name */
-            if (are_all_categories_the_same_locale) {
-                PL_curlocales[LC_ALL_INDEX_] = savepv(PL_curlocales[0]);
-                return PL_curlocales[LC_ALL_INDEX_];
-            }
-
-            names_len++;    /* Trailing '\0' */
-            SAVEFREEPV(Newx(all_string, names_len, char));
-            *all_string = '\0';
-
-            /* Then fill in the string */
-            for (i = 0; i < LC_ALL_INDEX_; i++) {
-
-                DEBUG_Lv(PerlIO_printf(Perl_debug_log,
-                         "%s:%d: emulate_setlocale i=%d, name=%s, locale=%s\n",
-                         __FILE__, __LINE__, i, category_names[i],
-                         PL_curlocales[i]));
-
-                my_strlcat(all_string, category_names[i], names_len);
-                my_strlcat(all_string, "=", names_len);
-                my_strlcat(all_string, PL_curlocales[i], names_len);
-                my_strlcat(all_string, ";", names_len);
-            }
-
-            DEBUG_L(PerlIO_printf(Perl_debug_log,
-                    "%s:%d: emulate_setlocale returning %s\n",
-                    __FILE__, __LINE__, all_string));
-
-            return all_string;
+            return PL_curlocales[LC_ALL_INDEX_];
         }
 
-#  endif
+        /* Otherwise, we need to construct a string of name=value pairs.
+         * We use the glibc syntax, like
+         *      LC_NUMERIC=C;LC_TIME=en_US.UTF-8;...
+         *  First calculate the needed size.  Along the way, check if all
+         *  the locale names are the same */
+        for (i = 0; i < LC_ALL_INDEX_; i++) {
 
-    }   /* End of this being setlocale(LC_foo, NULL) */
+            DEBUG_Lv(PerlIO_printf(Perl_debug_log,
+                     "%s:%d: do_querylocale i=%d, name=%s, locale=%s\n",
+                     __FILE__, __LINE__, i, category_names[i],
+                     PL_curlocales[i]));
 
-    /* Here, we are switching locales. */
+            names_len += strlen(category_names[i])
+                      + 1                       /* '=' */
+                      + strlen(PL_curlocales[i])
+                      + 1;                      /* ';' */
+
+            if (i > 0 && strNE(PL_curlocales[i], PL_curlocales[i-1])) {
+                are_all_categories_the_same_locale = FALSE;
+            }
+        }
+
+        /* If they are the same, we don't actually have to construct the
+         * string; we just make the entry in LC_ALL_INDEX_ valid, and be
+         * that single name */
+        if (are_all_categories_the_same_locale) {
+            PL_curlocales[LC_ALL_INDEX_] = savepv(PL_curlocales[0]);
+            return PL_curlocales[LC_ALL_INDEX_];
+        }
+
+        names_len++;    /* Trailing '\0' */
+        SAVEFREEPV(Newx(all_string, names_len, char));
+        *all_string = '\0';
+
+        /* Then fill in the string */
+        for (i = 0; i < LC_ALL_INDEX_; i++) {
+
+            DEBUG_Lv(PerlIO_printf(Perl_debug_log,
+                     "%s:%d: do_querylocale i=%d, name=%s, locale=%s\n",
+                     __FILE__, __LINE__, i, category_names[i],
+                     PL_curlocales[i]));
+
+            my_strlcat(all_string, category_names[i], names_len);
+            my_strlcat(all_string, "=", names_len);
+            my_strlcat(all_string, PL_curlocales[i], names_len);
+            my_strlcat(all_string, ";", names_len);
+        }
+
+        DEBUG_L(PerlIO_printf(Perl_debug_log,
+                "%s:%d: do_querylocale returning %s\n",
+                __FILE__, __LINE__, all_string));
+
+        return all_string;
+    }
+
+#    endif
+
+}
+
+STATIC const char *
+S_emulate_setlocale(const unsigned int index, const char * locale)
+{
+    /* This function effectively performs a setlocale() on just the current
+     * thread; thus it is thread-safe.  It does this by using the POSIX 2008
+     * locale functions to emulate the behavior of setlocale().  Similar to
+     * regular setlocale(), the return from this function points to memory that
+     * can be overwritten by other system calls, so needs to be copied
+     * immediately if you need to retain it.  The difference here is that
+     * system calls besides another setlocale() can overwrite it.
+     *
+     * By doing this, most locale-sensitive functions become thread-safe.  The
+     * exceptions are mostly those that return a pointer to static memory.
+     *
+     * This function takes our internal index of the 'category' setlocale is
+     * called with, and the 'locale' to set the category to.  It converts the
+     * index into the equivalent mask that the POSIX 2008 functions use.
+     */
+
+    int mask;
+    int category;
+    locale_t old_obj;
+    locale_t new_obj;
+    dTHX;
+
+    if (index > NOMINAL_LC_ALL_INDEX) { /* Out-of bounds */
+        return NULL;
+    }
+
+    mask = category_masks[index];
+    category = categories[index];
+
+    DEBUG_Lv(PerlIO_printf(Perl_debug_log,
+             "%s:%d: emulate_setlocale input=%d (%s), mask=0x%x, \"%s\", %d\n",
+            __FILE__, __LINE__, category, category_name(category), mask,
+            locale, index));
+
+    /* If just querying what the existing locale is ... */
+    if (locale == NULL) {
+        return do_querylocale(index);
+    }
 
 #    ifndef HAS_QUERYLOCALE
 
@@ -773,7 +778,7 @@ S_emulate_setlocale(const unsigned int index, const char * locale)
                      * to update our records, and we've just done that for the
                      * individual categories in the loop above, and doing so
                      * would cause LC_ALL to be done as well */
-                    return emulate_setlocale(LC_ALL_INDEX_, NULL);
+                    return do_querylocale(LC_ALL_INDEX_);
                 }
             }
         }

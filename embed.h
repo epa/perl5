@@ -1702,6 +1702,7 @@
 #define stdize_locale(a)	S_stdize_locale(aTHX_ a)
 #define switch_category_locale_to_template(a,b,c)	S_switch_category_locale_to_template(aTHX_ a,b,c)
 #      if defined(USE_POSIX_2008_LOCALE)
+#define do_querylocale		S_do_querylocale
 #define emulate_setlocale	S_emulate_setlocale
 #      endif
 #      if defined(WIN32)
