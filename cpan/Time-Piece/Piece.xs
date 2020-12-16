@@ -831,7 +831,7 @@ label:
 			const char *cp;
 			char *zonestr;
 
-			for (cp = buf; *cp && isupper((unsigned char)*cp); ++cp)
+			for (cp = buf; *cp && isUPPER((unsigned char)*cp); ++cp)
                             {/*empty*/}
 			if (cp - buf) {
 				zonestr = (char *)malloc((size_t) (cp - buf + 1));
