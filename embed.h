@@ -1516,6 +1516,15 @@
 #define dooneliner(a,b)		S_dooneliner(aTHX_ a,b)
 #    endif
 #  endif
+#  if !defined(HAS_QUERY_LOCALE)
+#    if defined(PERL_IN_LOCALE_C)
+#      if defined(USE_LOCALE)
+#        if defined(USE_POSIX_2008_LOCALE)
+#define query_PL_curlocales	S_query_PL_curlocales
+#        endif
+#      endif
+#    endif
+#  endif
 #  if !defined(HAS_RENAME)
 #define same_dirent(a,b)	Perl_same_dirent(aTHX_ a,b)
 #  endif

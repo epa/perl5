@@ -355,7 +355,6 @@ S_category_name(const int category)
 
     return Perl_form_nocontext("%d (unknown)", category);
 }
-
 #endif /* ifdef USE_LOCALE */
 
 /* my_setlocale() presents a consistent POSIX-compliant interface to
@@ -387,6 +386,109 @@ S_category_name(const int category)
 #  define FIX_GLIBC_LC_MESSAGES_BUG(i)
 
 #else   /* Below uses POSIX 2008 */
+
+#  if ! defined(HAS_QUERYLOCALE)
+
+STATIC const char *
+S_query_PL_curlocales(const unsigned int index)
+{
+    /* Return the current locale name stored in PL_curlocales for the category
+     * whose internal index value is 'index' */
+
+    int category;
+    dTHX;
+
+    if (index > NOMINAL_LC_ALL_INDEX) { /* Out-of bounds */
+        return NULL;
+    }
+
+    category = categories[index];
+
+    /* If this assert fails, adjust the size of curlocales in intrpvar.h */
+    STATIC_ASSERT_DECL(C_ARRAY_LENGTH(PL_curlocales) > LC_ALL_INDEX_);
+
+    if (category != LC_ALL) {
+
+        DEBUG_Lv(PerlIO_printf(Perl_debug_log,
+                 "%s:%d: query_PL_curlocales returning %s\n",
+                 __FILE__, __LINE__, PL_curlocales[index]));
+
+        return PL_curlocales[index];
+    }
+    else {  /* For LC_ALL */
+        unsigned int i;
+        Size_t names_len = 0;
+        char * all_string;
+        bool are_all_categories_the_same_locale = TRUE;
+
+        /* If we have a valid LC_ALL value, just return it */
+        if (PL_curlocales[LC_ALL_INDEX_]) {
+
+            DEBUG_Lv(PerlIO_printf(Perl_debug_log,
+                     "%s:%d: query_PL_curlocales returning %s\n",
+                     __FILE__, __LINE__, PL_curlocales[LC_ALL_INDEX_]));
+
+            return PL_curlocales[LC_ALL_INDEX_];
+        }
+
+        /* For POSIX 2008, we construct a string of name=value pairs.  The
+         * syntax doesn't much matter since we never use setlocale() on this
+         * system.  But it's convenient to use the glibc syntax, like
+         *      LC_NUMERIC=C;LC_TIME=en_US.UTF-8;...
+         *  First calculate the needed size.  Along the way, check if all
+         *  the locale names are the same */
+        for (i = 0; i < LC_ALL_INDEX_; i++) {
+
+            DEBUG_Lv(PerlIO_printf(Perl_debug_log,
+                     "%s:%d: query_PL_curlocales i=%d, name=%s, locale=%s\n",
+                     __FILE__, __LINE__, i, category_names[i],
+                     PL_curlocales[i]));
+
+            names_len += strlen(category_names[i])
+                      + 1                       /* '=' */
+                      + strlen(PL_curlocales[i])
+                      + 1;                      /* ';' */
+
+            if (i > 0 && strNE(PL_curlocales[i], PL_curlocales[i-1])) {
+                are_all_categories_the_same_locale = FALSE;
+            }
+        }
+
+        /* If they are the same, we don't actually have to construct the
+         * string; we just make the entry in LC_ALL_INDEX_ valid, and be
+         * that single name */
+        if (are_all_categories_the_same_locale) {
+            PL_curlocales[LC_ALL_INDEX_] = savepv(PL_curlocales[0]);
+            return PL_curlocales[LC_ALL_INDEX_];
+        }
+
+        names_len++;    /* Trailing '\0' */
+        SAVEFREEPV(Newx(all_string, names_len, char));
+        *all_string = '\0';
+
+        /* Then fill in the string */
+        for (i = 0; i < LC_ALL_INDEX_; i++) {
+
+            DEBUG_Lv(PerlIO_printf(Perl_debug_log,
+                     "%s:%d: query_PL_curlocales i=%d, name=%s, locale=%s\n",
+                     __FILE__, __LINE__, i, category_names[i],
+                     PL_curlocales[i]));
+
+            my_strlcat(all_string, category_names[i], names_len);
+            my_strlcat(all_string, "=", names_len);
+            my_strlcat(all_string, PL_curlocales[i], names_len);
+            my_strlcat(all_string, ";", names_len);
+        }
+
+        DEBUG_L(PerlIO_printf(Perl_debug_log,
+                "%s:%d: query_PL_curlocales returning %s\n",
+                __FILE__, __LINE__, all_string));
+
+        return all_string;
+    }
+}
+
+#  endif
 
 /* We emulate setlocale with our own function.  LC_foo is not valid for the
  * POSIX 2008 functions.  Instead LC_foo_MASK is used, which we use an array
@@ -522,10 +624,6 @@ S_do_querylocale(const unsigned int index)
     return (char *) querylocale(mask, cur_obj);
 
 #    else
-
-    /* If this assert fails, adjust the size of curlocales in intrpvar.h */
-    STATIC_ASSERT_STMT(C_ARRAY_LENGTH(PL_curlocales) > LC_ALL_INDEX_);
-
 #      if   defined(_NL_LOCALE_NAME)                                        \
      &&   defined(DEBUGGING)                                                \
         /* On systems that accept any locale name, the real underlying      \
@@ -572,84 +670,8 @@ S_do_querylocale(const unsigned int index)
 
     /* Without querylocale(), we have to use our record-keeping we've
      *  done. */
-    if (category != LC_ALL) {
 
-            DEBUG_Lv(PerlIO_printf(Perl_debug_log,
-                     "%s:%d: do_querylocale returning %s\n",
-                     __FILE__, __LINE__, PL_curlocales[index]));
-
-        return PL_curlocales[index];
-    }
-    else {  /* For LC_ALL */
-        unsigned int i;
-        Size_t names_len = 0;
-        char * all_string;
-        bool are_all_categories_the_same_locale = TRUE;
-
-        /* If we have a valid LC_ALL value, just return it */
-        if (PL_curlocales[LC_ALL_INDEX_]) {
-
-                DEBUG_Lv(PerlIO_printf(Perl_debug_log,
-                         "%s:%d: do_querylocale returning %s\n",
-                         __FILE__, __LINE__, PL_curlocales[LC_ALL_INDEX_]));
-
-            return PL_curlocales[LC_ALL_INDEX_];
-        }
-
-        /* Otherwise, we need to construct a string of name=value pairs.
-         * We use the glibc syntax, like
-         *      LC_NUMERIC=C;LC_TIME=en_US.UTF-8;...
-         *  First calculate the needed size.  Along the way, check if all
-         *  the locale names are the same */
-        for (i = 0; i < LC_ALL_INDEX_; i++) {
-
-            DEBUG_Lv(PerlIO_printf(Perl_debug_log,
-                     "%s:%d: do_querylocale i=%d, name=%s, locale=%s\n",
-                     __FILE__, __LINE__, i, category_names[i],
-                     PL_curlocales[i]));
-
-            names_len += strlen(category_names[i])
-                      + 1                       /* '=' */
-                      + strlen(PL_curlocales[i])
-                      + 1;                      /* ';' */
-
-            if (i > 0 && strNE(PL_curlocales[i], PL_curlocales[i-1])) {
-                are_all_categories_the_same_locale = FALSE;
-            }
-        }
-
-        /* If they are the same, we don't actually have to construct the
-         * string; we just make the entry in LC_ALL_INDEX_ valid, and be
-         * that single name */
-        if (are_all_categories_the_same_locale) {
-            PL_curlocales[LC_ALL_INDEX_] = savepv(PL_curlocales[0]);
-            return PL_curlocales[LC_ALL_INDEX_];
-        }
-
-        names_len++;    /* Trailing '\0' */
-        SAVEFREEPV(Newx(all_string, names_len, char));
-        *all_string = '\0';
-
-        /* Then fill in the string */
-        for (i = 0; i < LC_ALL_INDEX_; i++) {
-
-            DEBUG_Lv(PerlIO_printf(Perl_debug_log,
-                     "%s:%d: do_querylocale i=%d, name=%s, locale=%s\n",
-                     __FILE__, __LINE__, i, category_names[i],
-                     PL_curlocales[i]));
-
-            my_strlcat(all_string, category_names[i], names_len);
-            my_strlcat(all_string, "=", names_len);
-            my_strlcat(all_string, PL_curlocales[i], names_len);
-            my_strlcat(all_string, ";", names_len);
-        }
-
-        DEBUG_L(PerlIO_printf(Perl_debug_log,
-                "%s:%d: do_querylocale returning %s\n",
-                __FILE__, __LINE__, all_string));
-
-        return all_string;
-    }
+    return query_PL_curlocales(index);
 
 #    endif
 

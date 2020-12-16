@@ -4285,6 +4285,16 @@ PERL_CALLCONV int	Perl_my_mkstemp(char *templte);
 #define PERL_ARGS_ASSERT_MY_MKSTEMP	\
 	assert(templte)
 #endif
+#if !defined(HAS_QUERY_LOCALE)
+#  if defined(PERL_IN_LOCALE_C)
+#    if defined(USE_LOCALE)
+#      if defined(USE_POSIX_2008_LOCALE)
+STATIC const char *	S_query_PL_curlocales(const unsigned int index);
+#define PERL_ARGS_ASSERT_QUERY_PL_CURLOCALES
+#      endif
+#    endif
+#  endif
+#endif
 #if !defined(HAS_RENAME)
 PERL_CALLCONV I32	Perl_same_dirent(pTHX_ const char* a, const char* b);
 #define PERL_ARGS_ASSERT_SAME_DIRENT	\

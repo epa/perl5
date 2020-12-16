@@ -3233,6 +3233,9 @@ S	|void	|new_numeric	|NULLOK const char* newnum
 ST	|const char*|emulate_setlocale|const unsigned int index		\
 				    |NULLOK const char* locale
 ST	|const char*|do_querylocale |const unsigned int index
+#      ifndef HAS_QUERY_LOCALE
+ST	|const char *|query_PL_curlocales|const unsigned int index
+#      endif
 #    endif
 #    ifdef WIN32
 S	|char*	|win32_setlocale|int category|NULLOK const char* locale
