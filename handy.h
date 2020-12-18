@@ -1895,7 +1895,8 @@ END_EXTERN_C
 /* These next three are also for internal core Perl use only: case-change
  * helper macros.  The reason for using the PL_latin arrays is in case the
  * system function is defective; it ensures uniform results that conform to the
- * Unicod standard.   It does not handle the anomalies in UTF-8 Turkic locales */
+ * Unicode standard.   It does not handle the anomalies in UTF-8 Turkic
+ * locales. */
 #define generic_toLOWER_LC_(c, function, cast)  (! FITS_IN_8_BITS(c)           \
                                                 ? (c)                          \
                                                 : (IN_UTF8_CTYPE_LOCALE)       \
@@ -1973,35 +1974,39 @@ END_EXTERN_C
      * Not all possible weirdnesses are checked for, just the ones that were
      * detected on actual Microsoft code pages */
 
-
-#  define isALPHA_LC(c)  (generic_LC_(c, _CC_ALPHA, isalpha)                  \
+#    define isALPHA_LC(c)  (generic_LC_(c, _CC_ALPHA, isalpha)               \
                                                     && isALPHANUMERIC_LC(c))
-#  define isALPHANUMERIC_LC(c)  (generic_LC_(c, _CC_ALPHANUMERIC, isalnum) && \
-                                                              ! isPUNCT_LC(c))
-#  define isDIGIT_LC(c)  (generic_LC_(c, _CC_DIGIT, isdigit) &&               \
-                                                         isALPHANUMERIC_LC(c))
-#  define isGRAPH_LC(c)  (generic_LC_(c, _CC_GRAPH, isgraph) && isPRINT_LC(c))
-#  define isIDFIRST_LC(c) (((c) == '_')                                       \
+#    define isALPHANUMERIC_LC(c)  (generic_LC_(c, _CC_ALPHANUMERIC, isalnum) \
+                                                         && ! isPUNCT_LC(c))
+#    define isDIGIT_LC(c)  (generic_LC_(c, _CC_DIGIT, isdigit)               \
+                                                    && isALPHANUMERIC_LC(c))
+#    define isGRAPH_LC(c)  (generic_LC_(c, _CC_GRAPH, isgraph)               \
+                                                            && isPRINT_LC(c))
+#    define isIDFIRST_LC(c) (((c) == '_')                                    \
                  || (generic_LC_(c, _CC_IDFIRST, isalpha) && ! isPUNCT_LC(c)))
-#  define isLOWER_LC(c)  (generic_LC_(c, _CC_LOWER, islower) && isALPHA_LC(c))
-#  define isPRINT_LC(c)  (generic_LC_(c, _CC_PRINT, isprint) && ! isCNTRL_LC(c))
-#  define isPUNCT_LC(c)  (generic_LC_(c, _CC_PUNCT, ispunct) && ! isCNTRL_LC(c))
-#  define isUPPER_LC(c)  (generic_LC_(c, _CC_UPPER, isupper) && isALPHA_LC(c))
-#  define isXDIGIT_LC(c) (generic_LC_(c, _CC_XDIGIT, isxdigit)                \
-                                                    && isALPHANUMERIC_LC(c))
-#  else /* For all other platforms with, as far as we know, sane locales that
+#    define isLOWER_LC(c)  (generic_LC_(c, _CC_LOWER, islower)               \
+                                                            && isALPHA_LC(c))
+#    define isPRINT_LC(c)  (generic_LC_(c, _CC_PRINT, isprint)               \
+                                                          && ! isCNTRL_LC(c))
+#    define isPUNCT_LC(c)  (generic_LC_(c, _CC_PUNCT, ispunct)               \
+                                                          && ! isCNTRL_LC(c))
+#    define isUPPER_LC(c)  (generic_LC_(c, _CC_UPPER, isupper)               \
+                                                            && isALPHA_LC(c))
+#    define isXDIGIT_LC(c) (generic_LC_(c, _CC_XDIGIT, isxdigit)             \
+                                                      && isALPHANUMERIC_LC(c))
+#    else /* For all other platforms with, as far as we know, sane locales that
            the isdigit(), etc functions operate on */
 
-#  define isALPHA_LC(c)   generic_LC_(c, _CC_ALPHA, isalpha)
-#  define isALPHANUMERIC_LC(c)  generic_LC_(c, _CC_ALPHANUMERIC, isalnum)
-#  define isDIGIT_LC(c)    generic_LC_(c, _CC_DIGIT, isdigit)
-#  define isGRAPH_LC(c)    generic_LC_(c, _CC_GRAPH, isgraph)
-#  define isIDFIRST_LC(c)  generic_LC_underscore_(c, _CC_IDFIRST, isalpha)
-#  define isLOWER_LC(c)    generic_LC_(c, _CC_LOWER, islower)
-#  define isPRINT_LC(c)    generic_LC_(c, _CC_PRINT, isprint)
-#  define isPUNCT_LC(c)    generic_LC_(c, _CC_PUNCT, ispunct)
-#  define isUPPER_LC(c)    generic_LC_(c, _CC_UPPER, isupper)
-#  define isXDIGIT_LC(c)   generic_LC_(c, _CC_XDIGIT, isxdigit)
+#    define isALPHA_LC(c)         generic_LC_(c, _CC_ALPHA, isalpha)
+#    define isALPHANUMERIC_LC(c)  generic_LC_(c, _CC_ALPHANUMERIC, isalnum)
+#    define isDIGIT_LC(c)        generic_LC_(c, _CC_DIGIT, isdigit)
+#    define isGRAPH_LC(c)        generic_LC_(c, _CC_GRAPH, isgraph)
+#    define isIDFIRST_LC(c)      generic_LC_underscore_(c, _CC_IDFIRST, isalpha)
+#    define isLOWER_LC(c)        generic_LC_(c, _CC_LOWER,   islower)
+#    define isPRINT_LC(c)        generic_LC_(c, _CC_PRINT,   isprint)
+#    define isPUNCT_LC(c)        generic_LC_(c, _CC_PUNCT,   ispunct)
+#    define isUPPER_LC(c)        generic_LC_(c, _CC_UPPER,   isupper)
+#    define isXDIGIT_LC(c)       generic_LC_(c, _CC_XDIGIT,  isxdigit)
 #  endif
 #else  /* The final fallback position */
 
