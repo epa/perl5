@@ -1930,7 +1930,7 @@ END_EXTERN_C
 
 /* Use the libc versions for these if available. */
 #if defined(HAS_ISASCII)
-#   define isASCII_LC(c) (FITS_IN_8_BITS(c) && isascii( (U8) (c)))
+#   define isASCII_LC(c) generic_LC_(c, CC_ASCII_, isascii)
 #else
 #   define isASCII_LC(c) isASCII(c)
 #endif
