@@ -1976,7 +1976,7 @@ END_EXTERN_C
 #    define isGRAPH_LC(c)  (generic_LC_(c, CC_GRAPH_, isgraph)               \
                                                             && isPRINT_LC(c))
 #    define isIDFIRST_LC(c) (((c) == '_')                                    \
-                 || (generic_LC_(c, CC_IDFIRST_, isalpha) && ! isPUNCT_LC(c)))
+                 || (generic_LC_(c, CC_ALPHA_, isalpha) && ! isPUNCT_LC(c)))
 #    define isLOWER_LC(c)  (generic_LC_(c, CC_LOWER_, islower)               \
                                                             && isALPHA_LC(c))
 #    define isPRINT_LC(c)  (generic_LC_(c, CC_PRINT_, isprint)               \
@@ -1995,7 +1995,7 @@ END_EXTERN_C
 #    define isDIGIT_LC(c)        generic_LC_(c, CC_DIGIT_, isdigit)
 #    define isGRAPH_LC(c)        generic_LC_(c, CC_GRAPH_, isgraph)
 #    define isIDFIRST_LC(c)  (   UNLIKELY((c) == '_')                   \
-                              || generic_LC_(c, CC_IDFIRST_, isalpha))
+                              || generic_LC_(c, CC_ALPHA_, isalpha))
 #    define isLOWER_LC(c)        generic_LC_(c, CC_LOWER_,   islower)
 #    define isPRINT_LC(c)        generic_LC_(c, CC_PRINT_,   isprint)
 #    define isPUNCT_LC(c)        generic_LC_(c, CC_PUNCT_,   ispunct)
