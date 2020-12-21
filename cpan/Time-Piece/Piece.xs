@@ -39,6 +39,8 @@ extern "C" {
 #  define STRFTIME_LOCK  ENV_LOCK
 #endif
 
+/* XXX bunch of other locks need, tzset putenv, getenv; haven't looked */
+
 #ifdef WIN32
 
 /*
@@ -111,6 +113,7 @@ extern "C" {
 #undef malloc
 #undef free
 
+/* Should call the one in Posix:: */
 static void
 fix_win32_tzenv(void)
 {
@@ -294,11 +297,13 @@ my_mini_mktime(struct tm *ptm)
     ptm->tm_wday = (jday + WEEKDAY_BIAS) % 7;
 }
 
-#  ifdef foldEQ_locale
-#     define strncasecmp(x,y,n) foldEQ_locale(x,y,n)
-#  elif defined(WIN32) || (defined(__QNX__) && defined(__WATCOMC__))
-#     define strncasecmp(x,y,n) strnicmp(x,y,n)
-#   endif
+#  ifndef foldEQ_locale
+#    ifdef strncasecmp
+#      define foldEQ_locale(x,y,n)  strncasecmp(x,y,n) 
+#    elif defined(WIN32) || (defined(__QNX__) && defined(__WATCOMC__))
+#      define foldEQ_locale(x,y,n)  strnicmp(x,y,n)
+#    endif
+#  endif
 
 /* strptime.c    0.1 (Powerdog) 94/03/27 */
 /* strptime copied from freebsd with the following copyright: */
@@ -580,8 +585,8 @@ label:
 			 * specifiers.
 			 */
             len = strlen(Locale->am);
-			if (strncasecmp(buf, Locale->am, len) == 0 ||
-					strncasecmp(buf, Locale->AM, len) == 0) {
+			if (foldEQ_locale(buf, Locale->am, len) == 0 ||
+					foldEQ_locale(buf, Locale->AM, len) == 0) {
 				if (tm->tm_hour > 12)
 					return 0;
 				if (tm->tm_hour == 12)
@@ -591,8 +596,8 @@ label:
 			}
 
 			len = strlen(Locale->pm);
-			if (strncasecmp(buf, Locale->pm, len) == 0 ||
-					strncasecmp(buf, Locale->PM, len) == 0) {
+			if (foldEQ_locale(buf, Locale->pm, len) == 0 ||
+					foldEQ_locale(buf, Locale->PM, len) == 0) {
 				if (tm->tm_hour > 12)
 					return 0;
 				if (tm->tm_hour != 12)
@@ -608,13 +613,13 @@ label:
 			for (i = 0; i < (int)asizeof(Locale->weekday); i++) {
 				if (c == 'A') {
 					len = strlen(Locale->weekday[i]);
-					if (strncasecmp(buf,
+					if (foldEQ_locale(buf,
 							Locale->weekday[i],
 							len) == 0)
 						break;
 				} else {
 					len = strlen(Locale->wday[i]);
-					if (strncasecmp(buf,
+					if (foldEQ_locale(buf,
 							Locale->wday[i],
 							len) == 0)
 						break;
@@ -708,7 +713,7 @@ label:
 				if (Oalternative) {
 					if (c == 'B') {
 						len = strlen(Locale->alt_month[i]);
-						if (strncasecmp(buf,
+						if (foldEQ_locale(buf,
 								Locale->alt_month[i],
 								len) == 0)
 							break;
@@ -716,13 +721,13 @@ label:
 				} else {
 					if (c == 'B') {
 						len = strlen(Locale->month[i]);
-						if (strncasecmp(buf,
+						if (foldEQ_locale(buf,
 								Locale->month[i],
 								len) == 0)
 							break;
 					} else {
 						len = strlen(Locale->mon[i]);
-						if (strncasecmp(buf,
+						if (foldEQ_locale(buf,
 								Locale->mon[i],
 								len) == 0)
 							break;
@@ -778,12 +783,10 @@ label:
             if(*got_GMT == 1) {
                 LOCALTIME_LOCK;
                 mytm = *localtime(&t);
-                LOCALTIME_UNLOCK;
             }
             else {
                 GMTIME_LOCK;
                 mytm = *gmtime(&t);
-                GMTIME_UNLOCK;
             }
 
             tm->tm_sec    = mytm.tm_sec;
@@ -795,6 +798,13 @@ label:
             tm->tm_wday   = mytm.tm_wday;
             tm->tm_yday   = mytm.tm_yday;
             tm->tm_isdst  = mytm.tm_isdst;
+
+            if(*got_GMT == 1) {
+                LOCALTIME_UNLOCK;
+            }
+            else {
+                GMTIME_UNLOCK;
+            }
 			}
 			break;
 
@@ -807,6 +817,7 @@ label:
 				return 0;
 
 			len = (c == 'Y') ? 4 : 2;
+                        /* XXX note this is a bug is isdigit, subtracting '0' because could be another set of 10. */
 			for (i = 0; len && *buf != 0 && isDIGIT((unsigned char)*buf); buf++) {
 				i *= 10;
 				i += *buf - '0';
@@ -989,17 +1000,22 @@ _strftime(fmt, epoch, islocal = 1)
         if(islocal == 1) {
             LOCALTIME_LOCK;
             mytm = *localtime(&epoch);
-            LOCALTIME_UNLOCK;
         }
         else {
             GMTIME_LOCK;
             mytm = *gmtime(&epoch);
-            GMTIME_UNLOCK;
         }
 
         STRFTIME_LOCK;
         len = strftime(tmpbuf, TP_BUF_SIZE, fmt, &mytm);
         STRFTIME_UNLOCK;
+        if(islocal == 1) {
+            LOCALTIME_UNLOCK;
+        }
+        else {
+            GMTIME_UNLOCK;
+        }
+        /* my_strftime ?? XXX */
         /*
         ** The following is needed to handle to the situation where
         ** tmpbuf overflows.  Basically we want to allocate a buffer
