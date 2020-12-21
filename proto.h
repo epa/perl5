@@ -362,6 +362,12 @@ PERL_CALLCONV I32	Perl_call_argv(pTHX_ const char* sub_name, I32 flags, char** a
 	assert(sub_name); assert(argv)
 PERL_CALLCONV void	Perl_call_atexit(pTHX_ ATEXIT_t fn, void *ptr);
 #define PERL_ARGS_ASSERT_CALL_ATEXIT
+#ifndef PERL_NO_INLINE_FUNCTIONS
+PERL_STATIC_INLINE int	Perl_call_clib_char_fcn_(const int classnum, const int character)
+			__attribute__warn_unused_result__;
+#define PERL_ARGS_ASSERT_CALL_CLIB_CHAR_FCN_
+#endif
+
 PERL_CALLCONV void	Perl_call_list(pTHX_ I32 oldscope, AV *paramList);
 #define PERL_ARGS_ASSERT_CALL_LIST	\
 	assert(paramList)
@@ -1765,6 +1771,18 @@ PERL_STATIC_INLINE bool	Perl_is_utf8_valid_partial_char_flags(const U8 * const s
 	assert(s); assert(e)
 #endif
 
+#ifndef PERL_NO_INLINE_FUNCTIONS
+PERL_STATIC_INLINE int	Perl_isblank_(int c)
+			__attribute__warn_unused_result__;
+#define PERL_ARGS_ASSERT_ISBLANK_
+#endif
+
+#ifndef PERL_NO_INLINE_FUNCTIONS
+PERL_STATIC_INLINE int	Perl_iscased_(int c)
+			__attribute__warn_unused_result__;
+#define PERL_ARGS_ASSERT_ISCASED_
+#endif
+
 PERL_CALLCONV bool	Perl_isinfnan(NV nv)
 			__attribute__warn_unused_result__
 			__attribute__pure__;
@@ -1773,6 +1791,12 @@ PERL_CALLCONV bool	Perl_isinfnan(NV nv)
 PERL_CALLCONV bool	Perl_isinfnansv(pTHX_ SV *sv);
 #define PERL_ARGS_ASSERT_ISINFNANSV	\
 	assert(sv)
+#ifndef PERL_NO_INLINE_FUNCTIONS
+PERL_STATIC_INLINE int	Perl_iswordchar_(int c)
+			__attribute__warn_unused_result__;
+#define PERL_ARGS_ASSERT_ISWORDCHAR_
+#endif
+
 PERL_CALLCONV OP*	Perl_jmaybe(pTHX_ OP *o);
 #define PERL_ARGS_ASSERT_JMAYBE	\
 	assert(o)
@@ -6216,9 +6240,11 @@ PERL_STATIC_INLINE I32	S_foldEQ_latin1_s2_folded(const char* a, const char* b, I
 #define PERL_ARGS_ASSERT_FOLDEQ_LATIN1_S2_FOLDED	\
 	assert(a); assert(b)
 #endif
-STATIC bool	S_isFOO_lc(pTHX_ const U8 classnum, const U8 character)
+#ifndef PERL_NO_INLINE_FUNCTIONS
+PERL_STATIC_INLINE bool	S_isFOO_lc(pTHX_ const U8 classnum, const U8 character)
 			__attribute__warn_unused_result__;
 #define PERL_ARGS_ASSERT_ISFOO_LC
+#endif
 
 STATIC bool	S_isFOO_utf8_lc(pTHX_ const U8 classnum, const U8* character, const U8* e)
 			__attribute__warn_unused_result__;

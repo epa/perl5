@@ -2439,7 +2439,7 @@ EFp	|int	|re_exec_indentf|NN const char *fmt|U32 depth|...
 #  endif
 #endif
 #if defined(PERL_IN_REGEXEC_C)
-ESR	|bool	|isFOO_lc	|const U8 classnum|const U8 character
+EiR	|bool	|isFOO_lc	|const U8 classnum|const U8 character
 #endif
 
 Ap	|void	|taint_env
@@ -3261,6 +3261,10 @@ STR	|char *	|setlocale_debug_string	|const int category		    \
 Cp	|bool	|_is_cur_LC_category_utf8|int category
 #endif
 
+CpiRT	|int	|isblank_   |int c
+CpiRT	|int	|iscased_   |int c
+CpiRT	|int	|iswordchar_|int c
+CpiRT	|int	|call_clib_char_fcn_|const int classnum|const int character
 
 #if defined(PERL_IN_UTIL_C)
 S	|SV*	|mess_alloc

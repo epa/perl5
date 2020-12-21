@@ -5001,11 +5001,60 @@ EXTCONST char PL_bitcount[256] =
 ;
 EXTCONST char* const PL_sig_name[] = { SIG_NAME };
 EXTCONST int         PL_sig_num[]  = { SIG_NUM };
+
+/* We have a chicken and egg problem; forward declare these functions so that
+ * they can be referenced in the following array of function pointers, which
+ * must come before the function that refers to it.  This could be worked
+ * around, but not worth the effort */
+#ifndef PERL_NO_INLINE_FUNCTIONS
+PERL_STATIC_INLINE int	Perl_isblank_(int c);
+PERL_STATIC_INLINE int	Perl_iscased_(int c);
+PERL_STATIC_INLINE int	Perl_iswordchar_(int c);
+#endif
+
+/* C library calls for character classification, and at the end, changing case.
+ * indexed by e.g., CC_ALPHA_.
+ * */
+EXT  int (*PL_clib_char_fcns[])(int) = {
+    Perl_iswordchar_,
+    isdigit,
+    isalpha,
+    islower,
+    isupper,
+    ispunct,
+    isprint,
+    isalnum,
+    isgraph,
+    Perl_iscased_,
+    isspace,
+
+#ifdef HAS_ISBLANK
+    isblank,
 #else
+    Perl_isblank_,
+#endif
+
+    isxdigit,
+    iscntrl,
+
+#ifdef HAS_ISASCII
+    isascii,
+#else
+    NULL,   /* We shouldn't get here if fcn isn't on this platform */
+#endif
+
+    tolower,
+    toupper
+};
+
+#else
+
 EXTCONST char PL_uudmap[256];
 EXTCONST char PL_bitcount[256];
 EXTCONST char* const PL_sig_name[];
 EXTCONST int         PL_sig_num[];
+EXT      int (*PL_clib_char_fcns[])(int);
+
 #endif
 
 /* fast conversion and case folding tables.  The folding tables complement the

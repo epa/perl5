@@ -1502,8 +1502,15 @@ or casts
 
 #  define HIGHEST_REGCOMP_DOT_H_SYNC_ CC_VERTSPACE_
 
-/* The members of the third group below do not need to be coordinated with data
- * structures in regcomp.[ch] and regexec.c. */
+/* These two follow immediately after the final function that has a version
+ * defined by C, like isascii(), so they overlap with anything else.  They are
+ * used in the 'PL_clib_char_fcns' data structure, along with the ones above
+ * them */
+# define CC_TOLOWER_  HIGHEST_REGCOMP_DOT_H_SYNC_
+# define CC_TOUPPER_  (CC_TOLOWER_ + 1)
+
+/* The members of the fourth group below do not need to be coordinated with
+ * data structures in regcomp.[ch] and regexec.c. */
 #  define CC_IDFIRST_                  16
 #  define CC_CHARNAME_CONT_            17
 #  define CC_NONLATIN1_FOLD_           18

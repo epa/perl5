@@ -11,6 +11,7 @@ PL_block_type
 PL_c9_utf8_dfa_tab
 PL_charclass
 PL_check
+PL_clib_char_fcns
 PL_core_reg_engine
 PL_EXACTFish_bitmask
 PL_EXACT_REQ8_bitmask

@@ -115,6 +115,35 @@ S_strip_spaces(pTHX_ const char * orig, STRLEN * const len)
 }
 #endif
 
+/* ------------------------------- handy.h ------------------------------- */
+
+PERL_STATIC_INLINE int
+Perl_iswordchar_(int c)
+{
+    return UNLIKELY((c) == '_') || isalnum(c);
+}
+
+PERL_STATIC_INLINE int
+Perl_iscased_(int c)
+{
+    return islower(c) || isupper(c);
+}
+
+PERL_STATIC_INLINE int
+Perl_isblank_(int c)
+{
+    return isBLANK(c);
+}
+
+PERL_STATIC_INLINE int
+Perl_call_clib_char_fcn_(int classnum, int character)
+{
+    /* Call one of the C library functions whose index into our array of them
+     * is 'classnum', using 'character' as the argument. */
+
+    return PL_clib_char_fcns[classnum](character);
+}
+
 /* ------------------------------- mg.h ------------------------------- */
 
 #if defined(PERL_CORE) || defined(PERL_EXT)

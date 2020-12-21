@@ -425,45 +425,17 @@ S_regcp_restore(pTHX_ regexp *rex, I32 ix, U32 *maxopenparen_p _pDEPTH)
 
 #define regcpblow(cp) LEAVE_SCOPE(cp)	/* Ignores regcppush()ed data. */
 
-STATIC bool
+PERL_STATIC_INLINE bool
 S_isFOO_lc(pTHX_ const U8 classnum, const U8 character)
 {
     /* Returns a boolean as to whether or not 'character' is a member of the
-     * Posix character class given by 'classnum' that should be equivalent to a
-     * value in the typedef 'char_class_number_'.
-     *
-     * Ideally this could be replaced by a just an array of function pointers
-     * to the C library functions that implement the macros this calls.
-     * However, to compile, the precise function signatures are required, and
-     * these may vary from platform to platform.  To avoid having to figure
-     * out what those all are on each platform, I (khw) am using this method,
-     * which adds an extra layer of function call overhead (unless the C
-     * optimizer strips it away).  But we don't particularly care about
-     * performance with locales anyway. */
+     * Posix character class given by 'classnum' */
 
-    switch ((char_class_number_) classnum) {
-        case CC_ENUM_ALPHANUMERIC_: return isALPHANUMERIC_LC(character);
-        case CC_ENUM_ALPHA_:     return isALPHA_LC(character);
-        case CC_ENUM_ASCII_:     return isASCII_LC(character);
-        case CC_ENUM_BLANK_:     return isBLANK_LC(character);
-        case CC_ENUM_CASED_:     return    isLOWER_LC(character)
-                                        || isUPPER_LC(character);
-        case CC_ENUM_CNTRL_:     return isCNTRL_LC(character);
-        case CC_ENUM_DIGIT_:     return isDIGIT_LC(character);
-        case CC_ENUM_GRAPH_:     return isGRAPH_LC(character);
-        case CC_ENUM_LOWER_:     return isLOWER_LC(character);
-        case CC_ENUM_PRINT_:     return isPRINT_LC(character);
-        case CC_ENUM_PUNCT_:     return isPUNCT_LC(character);
-        case CC_ENUM_SPACE_:     return isSPACE_LC(character);
-        case CC_ENUM_UPPER_:     return isUPPER_LC(character);
-        case CC_ENUM_WORDCHAR_:  return isWORDCHAR_LC(character);
-        case CC_ENUM_XDIGIT_:    return isXDIGIT_LC(character);
-        default:    /* VERTSPACE should never occur in locales */
-            Perl_croak(aTHX_ "panic: isFOO_lc() has an unexpected character class '%d'", classnum);
+    if (IN_UTF8_CTYPE_LOCALE) {
+        return cBOOL(generic_isCC_(character, classnum));
     }
 
-    NOT_REACHED; /* NOTREACHED */
-    return FALSE;
+    return cBOOL(call_clib_char_fcn_(classnum, character));
 }
 
 PERL_STATIC_INLINE I32
