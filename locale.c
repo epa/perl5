@@ -2720,7 +2720,7 @@ S_my_nl_langinfo(const int item, bool toggle)
                 /* We don't bother with localeconv_l() because any system that
                  * has it is likely to also have nl_langinfo() */
 
-                LOCALECONV_LOCK;    /* Prevent interference with other threads
+                LC_MONETARY_LOCK;    /* Prevent interference with other threads
                                        using localeconv() */
 
 #    ifdef TS_W32_BROKEN_LOCALECONV
@@ -2748,7 +2748,7 @@ S_my_nl_langinfo(const int item, bool toggle)
                     || ! lc->currency_symbol
                     || strEQ("", lc->currency_symbol))
                 {
-                    LOCALECONV_UNLOCK;
+                    LC_MONETARY_UNLOCK;
                     return "";
                 }
 
@@ -2778,7 +2778,7 @@ S_my_nl_langinfo(const int item, bool toggle)
 
 #    endif
 
-                LOCALECONV_UNLOCK;
+                LC_MONETARY_UNLOCK;
                 break;
 
 #    ifdef TS_W32_BROKEN_LOCALECONV
