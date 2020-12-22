@@ -2127,20 +2127,22 @@ Perl_setlocale(const int category, const char * locale)
 #else
 
     const char * retval;
-    const char * newlocale;
     unsigned int index;
     dSAVEDERRNO;
     dTHX;
-    DECLARATION_FOR_LC_NUMERIC_MANIPULATION;
 
-#ifdef USE_LOCALE_NUMERIC
-
-    /* A NULL locale means only query what the current one is.  We have the
-     * LC_NUMERIC name saved, because we are normally switched into the C
-     * (or equivalent) locale for it.  For an LC_ALL query, switch back to get
-     * the correct results.  All other categories don't require special
-     * handling */
+    /* A NULL locale means only query what the current one is. */
     if (locale == NULL) {
+
+#  ifdef USE_LOCALE_NUMERIC
+#    ifdef LC_ALL
+
+        DECLARATION_FOR_LC_NUMERIC_MANIPULATION;
+
+#    endif
+
+        /* We have the LC_NUMERIC name saved, because we are normally switched
+         * into the C locale (or equivalent) for it. */
         if (category == LC_NUMERIC) {
 
             /* We don't have to copy this return value, as it is a per-thread
@@ -2148,29 +2150,35 @@ Perl_setlocale(const int category, const char * locale)
             return PL_numeric_name;
         }
 
-#  ifdef LC_ALL
+#    ifdef LC_ALL
 
-        else if (category == LC_ALL) {
+        /* For an LC_ALL query, switch back to the underlying numeric locale
+         * (if we aren't there already) so as to get the correct results.  Our
+         * records for all the other categories are valid without switching */
+        if (category == LC_ALL) {
             STORE_LC_NUMERIC_FORCE_TO_UNDERLYING();
+        }
+
+#    endif
+#  endif    /* End of has LC_NUMERIC */
+
+        retval = save_to_buffer(do_querylocale_r(category),
+                                &PL_setlocale_buf, &PL_setlocale_bufsize, 0);
+
+#  if defined(USE_LOCALE_NUMERIC) && defined(LC_ALL)
+
+        if (category == LC_ALL) {
+            RESTORE_LC_NUMERIC();
         }
 
 #  endif
 
-    }
-
-#endif
+        return retval;
+    } /* End of querying the current locale */
 
     retval = save_to_buffer(do_setlocale_r(category, locale),
                                 &PL_setlocale_buf, &PL_setlocale_bufsize, 0);
     SAVE_ERRNO;
-
-#if defined(USE_LOCALE_NUMERIC) && defined(LC_ALL)
-
-    if (locale == NULL && category == LC_ALL) {
-        RESTORE_LC_NUMERIC();
-    }
-
-#endif
 
     DEBUG_L(PerlIO_printf(Perl_debug_log,
         "%s:%d: %s\n", __FILE__, __LINE__,
@@ -2180,11 +2188,6 @@ Perl_setlocale(const int category, const char * locale)
 
     if (! retval) {
         return NULL;
-    }
-
-    /* If locale == NULL, we are just querying the state */
-    if (locale == NULL) {
-        return retval;
     }
 
     /* Now that have switched locales, we have to update our records to
