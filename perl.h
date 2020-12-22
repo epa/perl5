@@ -6697,18 +6697,61 @@ the plain locale pragma without a parameter (S<C<use locale>>) is in effect.
     * locked that don't need to.  But, it is not expected that any of these
     * will be called frequently, and the locked interval should be short, and
     * modern platforms will have reentrant versions (which don't lock) for
-    * almost all of them, so khw thinks a single mutex should suffice. */
-#  define LOCALE_LOCK_                                                      \
+    * almost all of them, so khw thinks a single mutex should suffice.
+    *
+    * This mutex simulates a general (or recursive) semaphore.  The current
+    * thread will lock the mutex if the per-thread variable is zero, and then
+    * increments that variable.  Each corresponding UNLOCK decrements the
+    * variable until it is 0, at which point it actually unlocks the mutex.
+    * Since the variable is per-thread, initialized to 0, there is no race with
+    * other threads.
+    *
+    * The single argument is a condition to test for, and if true, to panic, as
+    * this would be an attempt to complement the LC_NUMERIC state, and we're
+    * not supposed to because it's locked.  Call it with the constant 0 to
+    * suppress the check
+    *
+    * Clang improperly gives warnings for this, if not silenced:
+    * https://clang.llvm.org/docs/ThreadSafetyAnalysis.html#conditional-locks
+    */
+#  define LOCALE_LOCK_(cond_to_panic_if_already_locked)                     \
         STMT_START {                                                        \
-            DEBUG_Lv(PerlIO_printf(Perl_debug_log,                          \
-                    "%s: %d: locking locale\n", __FILE__, __LINE__));       \
-            MUTEX_LOCK(&PL_locale_mutex);                                   \
+            CLANG_DIAG_IGNORE(-Wthread-safety)	     	                    \
+            if (PL_lc_numeric_mutex_depth <= 0) {                           \
+                MUTEX_LOCK(&PL_locale_mutex);                               \
+                PL_lc_numeric_mutex_depth = 1;                              \
+                DEBUG_Lv(PerlIO_printf(Perl_debug_log,                      \
+                         "%s: %d: locking locale; depth=1\n",               \
+                         __FILE__, __LINE__));                              \
+            }                                                               \
+            else {                                                          \
+                PL_lc_numeric_mutex_depth++;                                \
+                DEBUG_Lv(PerlIO_printf(Perl_debug_log,                      \
+                        "%s: %d: avoided locking locale; new depth=%d\n",   \
+                        __FILE__, __LINE__, PL_lc_numeric_mutex_depth));    \
+                if (cond_to_panic_if_already_locked) {                      \
+                    Perl_croak_nocontext("panic: %s: %d: Trying to change"  \
+                                         " LC_NUMERIC incompatibly",        \
+                                         __FILE__, __LINE__);               \
+                }                                                           \
+            }                                                               \
+            CLANG_DIAG_RESTORE                                              \
         } STMT_END
 #  define LOCALE_UNLOCK_                                                    \
         STMT_START {                                                        \
-            DEBUG_Lv(PerlIO_printf(Perl_debug_log,                          \
-                   "%s: %d: unlocking locale\n", __FILE__, __LINE__));      \
-            MUTEX_UNLOCK(&PL_locale_mutex);                                 \
+            if (PL_lc_numeric_mutex_depth <= 1) {                           \
+                MUTEX_UNLOCK(&PL_locale_mutex);                             \
+                PL_lc_numeric_mutex_depth = 0;                              \
+                DEBUG_Lv(PerlIO_printf(Perl_debug_log,                      \
+                         "%s: %d: unlocking locale; depth=0\n",             \
+                         __FILE__, __LINE__));                              \
+            }                                                               \
+            else {                                                          \
+                PL_lc_numeric_mutex_depth--;                                \
+                DEBUG_Lv(PerlIO_printf(Perl_debug_log,                      \
+                        "%s: %d: avoided unlocking locale; new depth=%d\n", \
+                        __FILE__, __LINE__, PL_lc_numeric_mutex_depth));    \
+            }                                                               \
         } STMT_END
 
    /* We do define a different macro for each case; then if we want to have
@@ -6718,24 +6761,24 @@ the plain locale pragma without a parameter (S<C<use locale>>) is in effect.
 #  if defined(HAS_LOCALECONV) && (  ! defined(HAS_POSIX_2008_LOCALE)        \
                                  || ! defined(HAS_LOCALECONV_L)             \
                                  ||   defined(TS_W32_BROKEN_LOCALECONV))
-#    define LOCALECONV_LOCK   LOCALE_LOCK_
+#    define LOCALECONV_LOCK   LOCALE_LOCK_(0)
 #    define LOCALECONV_UNLOCK LOCALE_UNLOCK_
 #  endif
 #  if defined(HAS_NL_LANGINFO) && (   ! defined(HAS_THREAD_SAFE_NL_LANGINFO_L) \
                                    || ! defined(HAS_POSIX_2008_LOCALE))
-#    define NL_LANGINFO_LOCK   LOCALE_LOCK_
+#    define NL_LANGINFO_LOCK   LOCALE_LOCK_(0)
 #    define NL_LANGINFO_UNLOCK LOCALE_UNLOCK_
 #  endif
 #  if defined(HAS_MBLEN) && ! defined(HAS_MBRLEN)
-#    define MBLEN_LOCK   LOCALE_LOCK_
+#    define MBLEN_LOCK   LOCALE_LOCK_(0)
 #    define MBLEN_UNLOCK LOCALE_UNLOCK_
 #  endif
 #  if defined(HAS_MBTOWC) && ! defined(HAS_MBRTOWC)
-#    define MBTOWC_LOCK   LOCALE_LOCK_
+#    define MBTOWC_LOCK   LOCALE_LOCK_(0)
 #    define MBTOWC_UNLOCK LOCALE_UNLOCK_
 #  endif
 #  if defined(HAS_WCTOMB) && ! defined(HAS_WCRTOMB)
-#    define WCTOMB_LOCK   LOCALE_LOCK_
+#    define WCTOMB_LOCK   LOCALE_LOCK_(0)
 #    define WCTOMB_UNLOCK LOCALE_UNLOCK_
 #  endif
 #  if defined(USE_THREAD_SAFE_LOCALE)
@@ -6752,77 +6795,13 @@ the plain locale pragma without a parameter (S<C<use locale>>) is in effect.
 #    define SETLOCALE_LOCK    NOOP
 #    define SETLOCALE_UNLOCK  NOOP
 #  else
-#    define SETLOCALE_LOCK   LOCALE_LOCK_
+#    define SETLOCALE_LOCK   LOCALE_LOCK_(0)
 #    define SETLOCALE_UNLOCK LOCALE_UNLOCK_
 
-    /* On platforms without per-thread locales, when another thread can switch
-     * our locale, we need another mutex to create critical sections where we
-     * want the LC_NUMERIC locale to be locked into either the C (standard)
-     * locale, or the underlying locale, so that other threads interrupting
-     * this one don't change it to the wrong state before we've had a chance to
-     * complete our operation.  It can stay locked over an entire printf
-     * operation, for example.  And so is made distinct from the LOCALE_LOCK
-     * mutex.
-     *
-     * This simulates kind of a general semaphore.  The current thread will
-     * lock the mutex if the per-thread variable is zero, and then increments
-     * that variable.  Each corresponding UNLOCK decrements the variable until
-     * it is 0, at which point it actually unlocks the mutex.  Since the
-     * variable is per-thread, there is no race with other threads.
-     *
-     * The single argument is a condition to test for, and if true, to panic,
-     * as this would be an attempt to complement the LC_NUMERIC state, and
-     * we're not supposed to because it's locked.
-     *
-     * Clang improperly gives warnings for this, if not silenced:
-     * https://clang.llvm.org/docs/ThreadSafetyAnalysis.html#conditional-locks
-     *
-     * If LC_NUMERIC_LOCK is combined with one of the LOCKs above, calls to
-     * that and its corresponding unlock should be contained entirely within
-     * the locked portion of LC_NUMERIC.  Those mutexes should be used only in
-     * very short sections of code, while LC_NUMERIC_LOCK may span more
-     * operations.  By always following this convention, deadlock should be
-     * impossible.  But if necessary, the two mutexes could be combined. */
 #    define LC_NUMERIC_LOCK(cond_to_panic_if_already_locked)                \
-        CLANG_DIAG_IGNORE(-Wthread-safety)	     	                    \
-        STMT_START {                                                        \
-            if (PL_lc_numeric_mutex_depth <= 0) {                           \
-                MUTEX_LOCK(&PL_lc_numeric_mutex);                           \
-                PL_lc_numeric_mutex_depth = 1;                              \
-                DEBUG_Lv(PerlIO_printf(Perl_debug_log,                      \
-                         "%s: %d: locking lc_numeric; depth=1\n",           \
-                         __FILE__, __LINE__));                              \
-            }                                                               \
-            else {                                                          \
-                PL_lc_numeric_mutex_depth++;                                \
-                DEBUG_Lv(PerlIO_printf(Perl_debug_log,                      \
-                        "%s: %d: avoided lc_numeric_lock; new depth=%d\n",  \
-                        __FILE__, __LINE__, PL_lc_numeric_mutex_depth));    \
-                if (cond_to_panic_if_already_locked) {                      \
-                    Perl_croak_nocontext("panic: %s: %d: Trying to change"  \
-                                         " LC_NUMERIC incompatibly",        \
-                                         __FILE__, __LINE__);               \
-                }                                                           \
-            }                                                               \
-        } STMT_END
+                            LOCALE_LOCK_(cond_to_panic_if_already_locked)
 
-#    define LC_NUMERIC_UNLOCK                                               \
-        STMT_START {                                                        \
-            if (PL_lc_numeric_mutex_depth <= 1) {                           \
-                MUTEX_UNLOCK(&PL_lc_numeric_mutex);                         \
-                PL_lc_numeric_mutex_depth = 0;                              \
-                DEBUG_Lv(PerlIO_printf(Perl_debug_log,                      \
-                         "%s: %d: unlocking lc_numeric; depth=0\n",         \
-                         __FILE__, __LINE__));                              \
-            }                                                               \
-            else {                                                          \
-                PL_lc_numeric_mutex_depth--;                                \
-                DEBUG_Lv(PerlIO_printf(Perl_debug_log,                      \
-                        "%s: %d: avoided lc_numeric_unlock; new depth=%d\n",\
-                        __FILE__, __LINE__, PL_lc_numeric_mutex_depth));    \
-            }                                                               \
-        } STMT_END                                                          \
-        CLANG_DIAG_RESTORE
+#    define LC_NUMERIC_UNLOCK  LOCALE_UNLOCK_
 
 #    define LOCALE_INIT_LC_NUMERIC_   MUTEX_INIT(&PL_lc_numeric_mutex)
 #    define LOCALE_TERM_LC_NUMERIC_   MUTEX_DESTROY(&PL_lc_numeric_mutex)
