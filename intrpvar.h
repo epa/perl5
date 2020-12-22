@@ -368,7 +368,7 @@ PERLVAR(I, in_utf8_CTYPE_locale, bool)
 PERLVAR(I, in_utf8_COLLATE_locale, bool)
 PERLVAR(I, in_utf8_turkic_locale, bool)
 #if defined(USE_ITHREADS) && ! defined(USE_THREAD_SAFE_LOCALE)
-PERLVARI(I, lc_numeric_mutex_depth, int, 0)   /* Emulate general semaphore */
+PERLVARI(I, locale_mutex_depth, int, 0)   /* Emulate general semaphore */
 #endif
 PERLVARA(I, locale_utf8ness, 256, char)
 

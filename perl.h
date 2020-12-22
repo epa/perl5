@@ -6717,18 +6717,18 @@ the plain locale pragma without a parameter (S<C<use locale>>) is in effect.
 #  define LOCALE_LOCK_(cond_to_panic_if_already_locked)                     \
         STMT_START {                                                        \
             CLANG_DIAG_IGNORE(-Wthread-safety)	     	                    \
-            if (PL_lc_numeric_mutex_depth <= 0) {                           \
+            if (PL_locale_mutex_depth <= 0) {                               \
                 MUTEX_LOCK(&PL_locale_mutex);                               \
-                PL_lc_numeric_mutex_depth = 1;                              \
+                PL_locale_mutex_depth = 1;                                  \
                 DEBUG_Lv(PerlIO_printf(Perl_debug_log,                      \
                          "%s: %d: locking locale; depth=1\n",               \
                          __FILE__, __LINE__));                              \
             }                                                               \
             else {                                                          \
-                PL_lc_numeric_mutex_depth++;                                \
+                PL_locale_mutex_depth++;                                    \
                 DEBUG_Lv(PerlIO_printf(Perl_debug_log,                      \
                         "%s: %d: avoided locking locale; new depth=%d\n",   \
-                        __FILE__, __LINE__, PL_lc_numeric_mutex_depth));    \
+                        __FILE__, __LINE__, PL_locale_mutex_depth));        \
                 if (cond_to_panic_if_already_locked) {                      \
                     Perl_croak_nocontext("panic: %s: %d: Trying to change"  \
                                          " LC_NUMERIC incompatibly",        \
@@ -6739,18 +6739,18 @@ the plain locale pragma without a parameter (S<C<use locale>>) is in effect.
         } STMT_END
 #  define LOCALE_UNLOCK_                                                    \
         STMT_START {                                                        \
-            if (PL_lc_numeric_mutex_depth <= 1) {                           \
+            if (PL_locale_mutex_depth <= 1) {                               \
                 MUTEX_UNLOCK(&PL_locale_mutex);                             \
-                PL_lc_numeric_mutex_depth = 0;                              \
+                PL_locale_mutex_depth = 0;                                  \
                 DEBUG_Lv(PerlIO_printf(Perl_debug_log,                      \
                          "%s: %d: unlocking locale; depth=0\n",             \
                          __FILE__, __LINE__));                              \
             }                                                               \
             else {                                                          \
-                PL_lc_numeric_mutex_depth--;                                \
+                PL_locale_mutex_depth--;                                    \
                 DEBUG_Lv(PerlIO_printf(Perl_debug_log,                      \
                         "%s: %d: avoided unlocking locale; new depth=%d\n", \
-                        __FILE__, __LINE__, PL_lc_numeric_mutex_depth));    \
+                        __FILE__, __LINE__, PL_locale_mutex_depth));        \
             }                                                               \
         } STMT_END
 
