@@ -6783,12 +6783,8 @@ the plain locale pragma without a parameter (S<C<use locale>>) is in effect.
 #  endif
 #  if defined(USE_THREAD_SAFE_LOCALE)
      /* On locale thread-safe systems, we don't need these workarounds */
-#    define LOCALE_TERM_LC_NUMERIC_   NOOP
-#    define LOCALE_INIT_LC_NUMERIC_   NOOP
 #    define LC_NUMERIC_LOCK(cond)   NOOP
 #    define LC_NUMERIC_UNLOCK       NOOP
-#    define LOCALE_INIT_LC_NUMERIC_ NOOP
-#    define LOCALE_TERM_LC_NUMERIC_ NOOP
 
      /* There may be instance core where we this is invoked yet should do
       * nothing.  Rather than have #ifdef's around them, define it here */
@@ -6802,9 +6798,6 @@ the plain locale pragma without a parameter (S<C<use locale>>) is in effect.
                             LOCALE_LOCK_(cond_to_panic_if_already_locked)
 
 #    define LC_NUMERIC_UNLOCK  LOCALE_UNLOCK_
-
-#    define LOCALE_INIT_LC_NUMERIC_   MUTEX_INIT(&PL_lc_numeric_mutex)
-#    define LOCALE_TERM_LC_NUMERIC_   MUTEX_DESTROY(&PL_lc_numeric_mutex)
 #  endif
 
 #  ifdef USE_POSIX_2008_LOCALE
@@ -6823,14 +6816,10 @@ the plain locale pragma without a parameter (S<C<use locale>>) is in effect.
 #    define LOCALE_TERM_POSIX_2008_  NOOP
 #  endif
 
-#  define LOCALE_INIT           STMT_START {                                \
-                                    MUTEX_INIT(&PL_locale_mutex);           \
-                                    LOCALE_INIT_LC_NUMERIC_;                \
-                                } STMT_END
+#  define LOCALE_INIT           MUTEX_INIT(&PL_locale_mutex);
 
 #  define LOCALE_TERM           STMT_START {                                \
                                     MUTEX_DESTROY(&PL_locale_mutex);        \
-                                    LOCALE_TERM_LC_NUMERIC_;                \
                                     LOCALE_TERM_POSIX_2008_;                \
                                 } STMT_END
 #endif
