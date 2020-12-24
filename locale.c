@@ -385,7 +385,7 @@ S_category_name(const int category)
  * search through the array (as the actual numbers may not be small contiguous
  * positive integers which would lend themselves to array lookup). */
 #    define do_setlocale_c(cat, locale)                                       \
-                                     emulate_setlocale(cat ## _INDEX_, locale)
+                                     emulate_setlocale(cat##_INDEX_, locale)
 #    define do_setlocale_r(cat, locale)                                       \
                   emulate_setlocale(get_category_index(cat, locale), locale)
 
