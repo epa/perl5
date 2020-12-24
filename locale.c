@@ -1987,10 +1987,8 @@ S_win32_setlocale(pTHX_ int category, const char* locale)
     result = setlocale(category, locale);
 #endif
     DEBUG_L(STMT_START {
-                dSAVE_ERRNO;
                 PerlIO_printf(Perl_debug_log, "%s:%d: %s\n", __FILE__, __LINE__,
                             setlocale_debug_string(category, locale, result));
-                RESTORE_ERRNO;
             } STMT_END);
 
     if (! override_LC_ALL)  {
@@ -2019,11 +2017,9 @@ S_win32_setlocale(pTHX_ int category, const char* locale)
 
     result = setlocale(LC_ALL, NULL);
     DEBUG_L(STMT_START {
-                dSAVE_ERRNO;
                 PerlIO_printf(Perl_debug_log, "%s:%d: %s\n",
                                __FILE__, __LINE__,
                                setlocale_debug_string(LC_ALL, NULL, result));
-                RESTORE_ERRNO;
             } STMT_END);
 
     return result;
@@ -2083,7 +2079,6 @@ Perl_setlocale(const int category, const char * locale)
 
     const char * retval;
     unsigned int index;
-    dSAVEDERRNO;
     dTHX;
 
     /* A NULL locale means only query what the current one is. */
@@ -2133,13 +2128,10 @@ Perl_setlocale(const int category, const char * locale)
 
     retval = save_to_buffer(do_setlocale_r(category, locale),
                                 &PL_setlocale_buf, &PL_setlocale_bufsize, 0);
-    SAVE_ERRNO;
 
     DEBUG_L(PerlIO_printf(Perl_debug_log,
         "%s:%d: %s\n", __FILE__, __LINE__,
             setlocale_debug_string(category, locale, retval)));
-
-    RESTORE_ERRNO;
 
     if (! retval) {
         return NULL;
