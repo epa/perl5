@@ -141,7 +141,14 @@ Perl_call_clib_char_fcn_(int classnum, int character)
     /* Call one of the C library functions whose index into our array of them
      * is 'classnum', using 'character' as the argument. */
 
-    return PL_clib_char_fcns[classnum](character);
+    int retval;
+
+    LC_CTYPE_LOCK;
+
+    retval = PL_clib_char_fcns[classnum](character);
+
+    LC_CTYPE_UNLOCK;
+    return retval;
 }
 
 /* ------------------------------- mg.h ------------------------------- */

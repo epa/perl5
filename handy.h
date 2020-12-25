@@ -1867,8 +1867,14 @@ END_EXTERN_C
 
 /* Use foo_LC_uvchr() instead  of these for beyond the Latin1 range */
 
+#ifdef USE_THREAD_SAFE_LOCALE_EMULATION
+#  define generic_LC_base_non_utf8_(c, classnum, non_utf8, cast)            \
+                                call_clib_char_fcn_(classnum, (cast) (c))
+#else
 #  define generic_LC_base_non_utf8_(c, classnum, non_utf8, cast)            \
                                                        non_utf8((cast) (c))
+#endif
+
 
 /* For internal core Perl use only: the base macro for defining macros like
  * isALPHA_LC, which uses the current LC_CTYPE locale.  'c' is the code point
@@ -1896,11 +1902,12 @@ END_EXTERN_C
  * system function is defective; it ensures uniform results that conform to the
  * Unicode standard.   It does not handle the anomalies in UTF-8 Turkic
  * locales. */
-#define generic_toLOWER_LC_(c, function, cast)  (! FITS_IN_8_BITS(c)           \
-                                                ? (c)                          \
-                                                : (IN_UTF8_CTYPE_LOCALE)       \
-                                                  ? PL_latin1_lc[ (U8) (c) ]   \
-                                                  : (cast)function((cast)(c)))
+#define generic_toLOWER_LC_(c)                                              \
+         (! FITS_IN_8_BITS(c)                                               \
+          ? (c)                                                             \
+          : (IN_UTF8_CTYPE_LOCALE)                                          \
+            ? PL_latin1_lc[ (U8) (c) ]                                      \
+            : (U8) generic_LC_base_non_utf8_(c, CC_TOLOWER_, tolower, U8))
 
 /* Note that the result can be larger than a byte in a UTF-8 locale.  It
  * returns a single value, so can't adequately return the upper case of LATIN
@@ -1908,18 +1915,18 @@ END_EXTERN_C
  * values "SS");  instead it asserts against that under DEBUGGING, and
  * otherwise returns its input.  It does not handle the anomalies in UTF-8
  * Turkic locales. */
-#define generic_toUPPER_LC_(c, function, cast)                                 \
-                    (! FITS_IN_8_BITS(c)                                       \
-                    ? (c)                                                      \
-                    : ((! IN_UTF8_CTYPE_LOCALE)                                \
-                      ? (cast)function((cast)(c))                              \
-                      : ((((U8)(c)) == MICRO_SIGN)                             \
-                        ? GREEK_CAPITAL_LETTER_MU                              \
-                        : ((((U8)(c)) == LATIN_SMALL_LETTER_Y_WITH_DIAERESIS)  \
-                          ? LATIN_CAPITAL_LETTER_Y_WITH_DIAERESIS              \
-                          : ((((U8)(c)) == LATIN_SMALL_LETTER_SHARP_S)         \
-                            ? (__ASSERT_(0) (c))                               \
-                            : PL_mod_latin1_uc[ (U8) (c) ])))))
+#define generic_toUPPER_LC_(c)                                              \
+            (! FITS_IN_8_BITS(c)                                            \
+            ? (c)                                                           \
+            : ((! IN_UTF8_CTYPE_LOCALE)                                     \
+                ? (U8) generic_LC_base_non_utf8_(c, CC_TOUPPER_, toupper, U8)\
+                : ((((U8)(c)) == MICRO_SIGN)                                \
+                ? GREEK_CAPITAL_LETTER_MU                                   \
+                : ((((U8)(c)) == LATIN_SMALL_LETTER_Y_WITH_DIAERESIS)       \
+                    ? LATIN_CAPITAL_LETTER_Y_WITH_DIAERESIS                 \
+                    : ((((U8)(c)) == LATIN_SMALL_LETTER_SHARP_S)            \
+                    ? (__ASSERT_(0) (c))                                    \
+                    : PL_mod_latin1_uc[ (U8) (c) ])))))
 
 /* Note that the result can be larger than a byte in a UTF-8 locale.  It
  * returns a single value, so can't adequately return the fold case of LATIN
@@ -1927,12 +1934,12 @@ END_EXTERN_C
  * values "ss"); instead it asserts against that under DEBUGGING, and
  * otherwise returns its input.  It does not handle the anomalies in UTF-8
  * Turkic locales */
-#define generic_toFOLD_LC_(c, function, cast)                                  \
+#define generic_toFOLD_LC_(c)                                                  \
                     ((UNLIKELY((c) == MICRO_SIGN) && IN_UTF8_CTYPE_LOCALE)     \
                       ? GREEK_SMALL_LETTER_MU                                  \
                       : (__ASSERT_(! IN_UTF8_CTYPE_LOCALE                      \
                                    || (c) != LATIN_SMALL_LETTER_SHARP_S)       \
-                         generic_toLOWER_LC_(c, function, cast)))
+                         generic_toLOWER_LC_(c)))
 
 /* Use the libc versions for these if available. */
 #if defined(HAS_ISASCII)
@@ -1958,9 +1965,9 @@ END_EXTERN_C
 #  define isSPACE_LC(c)     generic_LC_(c, CC_SPACE_, isspace)
 #  define isWORDCHAR_LC(c) (UNLIKELY((c) == '_') || isALPHANUMERIC_LC(c))
 
-#  define toLOWER_LC(c)     generic_toLOWER_LC_((c), tolower, U8)
-#  define toUPPER_LC(c)     generic_toUPPER_LC_((c), toupper, U8)
-#  define toFOLD_LC(c)      generic_toFOLD_LC_((c), tolower, U8)
+#  define toLOWER_LC(c)     generic_toLOWER_LC_(c)
+#  define toUPPER_LC(c)     generic_toUPPER_LC_(c)
+#  define toFOLD_LC(c)      generic_toFOLD_LC_(c)
 
 #  ifdef WIN32
     /* The Windows functions don't bother to follow the POSIX standard, which
