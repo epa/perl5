@@ -140,10 +140,10 @@ int afstat(int fd, struct stat *statb);
 	MALLOC_CHECK_TAINT2(*c,*v) PERL_FPU_INIT; PERLIO_INIT; MALLOC_INIT; amigaos4_init_fork_array(); amigaos4_init_environ_sema();
 #  define PERL_SYS_TERM_BODY()                         \
     HINTS_REFCNT_TERM; KEYWORD_PLUGIN_MUTEX_TERM;      \
-    OP_CHECK_MUTEX_TERM; OP_REFCNT_TERM; PERLIO_TERM;  \
+    OP_CHECK_MUTEX_TERM; OP_REFCNT_TERM;               \
     MALLOC_TERM; LOCALE_TERM; USER_PROP_MUTEX_TERM;    \
     ENV_TERM;                                          \
-    amigaos4_dispose_fork_array();
+    amigaos4_dispose_fork_array(); PERLIO_TERM;
 #endif
 
 #ifndef PERL_SYS_INIT_BODY
@@ -155,8 +155,9 @@ int afstat(int fd, struct stat *statb);
 #  define PERL_SYS_TERM_BODY()                         \
     HINTS_REFCNT_TERM; KEYWORD_PLUGIN_MUTEX_TERM;      \
     OP_CHECK_MUTEX_TERM; OP_REFCNT_TERM;  \
-    LOCALE_TERM; USER_PROP_MUTEX_TERM;    \
-    ENV_TERM; MALLOC_TERM; PERLIO_TERM; 
+    MALLOC_TERM; LOCALE_TERM; USER_PROP_MUTEX_TERM;    \
+    ENV_TERM; PERLIO_TERM;
+   /* Keep IO last so failures in the earlier ones can be output */
 
 #endif
 

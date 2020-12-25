@@ -50,9 +50,10 @@
 #ifndef PERL_SYS_TERM_BODY
 #  define PERL_SYS_TERM_BODY()                         \
     HINTS_REFCNT_TERM; KEYWORD_PLUGIN_MUTEX_TERM;      \
-    OP_CHECK_MUTEX_TERM; OP_REFCNT_TERM; PERLIO_TERM;  \
+    OP_CHECK_MUTEX_TERM; OP_REFCNT_TERM;               \
     MALLOC_TERM; LOCALE_TERM; USER_PROP_MUTEX_TERM;    \
-    ENV_TERM;
+    ENV_TERM; PERLIO_TERM;
+   /* Keep IO last so failures in the earlier ones can be output */
 #endif
 #define dXSUB_SYS dNOOP
 
