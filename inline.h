@@ -120,6 +120,9 @@ S_strip_spaces(pTHX_ const char * orig, STRLEN * const len)
 PERL_STATIC_INLINE int
 Perl_iswordchar_(int c)
 {
+    dTHX;
+    DEBUG_L(PerlIO_printf(Perl_debug_log, "%s:%d: finding if %x is an alnum in locale %s\n"
+                      , __FILE__, __LINE__, c, setlocale(LC_CTYPE, NULL)));
     return UNLIKELY((c) == '_') || isalnum(c);
 }
 
@@ -142,11 +145,15 @@ Perl_call_clib_char_fcn_(int classnum, int character)
      * is 'classnum', using 'character' as the argument. */
 
     int retval;
+    dTHX;
 
     LC_CTYPE_LOCK;
 
+    DEBUG_L(PerlIO_printf(Perl_debug_log, "%s:%d: finding if %x is member of %d in locale %s, ctype=%d\n"
+                      , __FILE__, __LINE__, character, classnum, setlocale(LC_CTYPE, NULL), IN_UTF8_CTYPE_LOCALE));
     retval = PL_clib_char_fcns[classnum](character);
-
+    DEBUG_L(PerlIO_printf(Perl_debug_log, "%s:%d: returning %d\n"
+                      , __FILE__, __LINE__, retval));
     LC_CTYPE_UNLOCK;
     return retval;
 }
