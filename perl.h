@@ -6599,54 +6599,115 @@ the plain locale pragma without a parameter (S<C<use locale>>) is in effect.
 
 
 /* Locale/thread synchronization macros. */
-#if ! (   defined(USE_LOCALE)                                               \
-       &&    defined(USE_ITHREADS)                                          \
-       && (  ! defined(USE_THREAD_SAFE_LOCALE)                              \
-           || (   defined(HAS_LOCALECONV)                                   \
-               && (  ! defined(HAS_LOCALECONV_L)                            \
-                   ||  defined(TS_W32_BROKEN_LOCALECONV)))                  \
-           || (   defined(HAS_NL_LANGINFO)                                  \
-               && ! defined(HAS_THREAD_SAFE_NL_LANGINFO_L))                 \
-           || (defined(HAS_MBLEN)  && ! defined(HAS_MBRLEN))                \
-           || (defined(HAS_MBTOWC) && ! defined(HAS_MBRTOWC))               \
-           || (defined(HAS_WCTOMB) && ! defined(HAS_WCRTOMB))))
-
-/* The whole expression just above was complemented, so here we have no need
- * for thread synchronization, most likely it would be that this isn't a
- * threaded build. */
+#if ! defined(USE_LOCALE) || ! defined(USE_ITHREADS)
+#  define LOCALE_BASE_LOCK_     NOOP
+#  define LOCALE_BASE_UNLOCK_   NOOP
+#  define LOCALE_LOCK_          NOOP
+#  define LOCALE_UNLOCK_        NOOP
 #  define LOCALE_INIT
 #  define LOCALE_TERM
-#  define LC_NUMERIC_LOCK(cond)     NOOP
-#  define LC_NUMERIC_UNLOCK         NOOP
-#  define LOCALECONV_LOCK           NOOP
-#  define LOCALECONV_UNLOCK         NOOP
-#  define LOCALE_READ_LOCK          NOOP
-#  define LOCALE_READ_UNLOCK        NOOP
-#  define MBLEN_LOCK                NOOP
-#  define MBLEN_UNLOCK              NOOP
-#  define MBTOWC_LOCK               NOOP
-#  define MBTOWC_UNLOCK             NOOP
-#  define NL_LANGINFO_LOCK          NOOP
-#  define NL_LANGINFO_UNLOCK        NOOP
-#  define SETLOCALE_LOCK            NOOP
-#  define SETLOCALE_UNLOCK          NOOP
-#  define WCTOMB_LOCK               NOOP
-#  define WCTOMB_UNLOCK             NOOP
-#else
 
-   /* Here, we will need critical sections in locale handling, because one or
-    * more of the above conditions are true.  This could be because the
-    * platform doesn't have thread-safe locales, or that at least one of the
-    * locale-dependent functions in the core isn't thread-safe.  The latter
-    * case is generally because they return a pointer to a static buffer, which
-    * may be per-process instead of per-thread.  There are supposedly
-    * re-entrant, safe versions for all of them Perl currently uses (which the
-    * #if above checks for), but most platforms don't have all the needed ones
-    * available, and the Posix standard doesn't require nl_langinfo_l() to be
-    * fully thread-safe, so a Configure probe was written.  localeconv_l() is
-    * uncommon, and judging by bug reports on the web, some earlier library
-    * localeconv_l versions were broken, so perhaps a probe is in order for
-    * that, but it would be a pain to write.
+#else   /* Below: Threaded, and locales are supported */
+
+    /* A locale mutex is required on all such threaded builds, if only for
+     * certain rare cases (which you can grep for). */
+#  define LOCALE_BASE_LOCK_(cond_to_panic_if_already_locked)                \
+        STMT_START {                                                        \
+            CLANG_DIAG_IGNORE(-Wthread-safety)	     	                    \
+            if (PL_locale_mutex_depth <= 0) {                               \
+                MUTEX_LOCK(&PL_locale_mutex);                               \
+                PL_locale_mutex_depth = 1;                                  \
+                DEBUG_Lv(PerlIO_printf(Perl_debug_log,                      \
+                         "%s: %d: locking locale; depth=1\n",               \
+                         __FILE__, __LINE__));                              \
+            }                                                               \
+            else {                                                          \
+                PL_locale_mutex_depth++;                                    \
+                DEBUG_Lv(PerlIO_printf(Perl_debug_log,                      \
+                        "%s: %d: avoided locking locale; new depth=%d\n",   \
+                        __FILE__, __LINE__, PL_locale_mutex_depth));        \
+                if (cond_to_panic_if_already_locked) {                      \
+                    Perl_croak_nocontext("panic: %s: %d: Trying to change"  \
+                                         " LC_NUMERIC incompatibly",        \
+                                         __FILE__, __LINE__);               \
+                }                                                           \
+            }                                                               \
+            CLANG_DIAG_RESTORE                                              \
+        } STMT_END
+#  define LOCALE_BASE_UNLOCK_                                               \
+        STMT_START {                                                        \
+            dTHX;                                                           \
+            if (PL_locale_mutex_depth <= 1) {                               \
+                MUTEX_UNLOCK(&PL_locale_mutex);                             \
+                PL_locale_mutex_depth = 0;                                  \
+                DEBUG_Lv(PerlIO_printf(Perl_debug_log,                      \
+                         "%s: %d: unlocking locale; depth=0\n",             \
+                         __FILE__, __LINE__));                              \
+            }                                                               \
+            else {                                                          \
+                PL_locale_mutex_depth--;                                    \
+                DEBUG_Lv(PerlIO_printf(Perl_debug_log,                      \
+                        "%s: %d: avoided unlocking locale; new depth=%d\n", \
+                        __FILE__, __LINE__, PL_locale_mutex_depth));        \
+            }                                                               \
+        } STMT_END
+#  define LOCALE_INIT           MUTEX_INIT(&PL_locale_mutex);
+
+#  ifdef USE_POSIX_2008_LOCALE
+     /* We have a locale object holding the 'C' locale for Posix 2008 */
+#    define LOCALE_TERM_POSIX_2008_                                         \
+                    STMT_START {                                            \
+                        if (PL_C_locale_obj) {                              \
+                            /* Make sure we aren't using the locale         \
+                             * space we are about to free */                \
+                            uselocale(LC_GLOBAL_LOCALE);                    \
+                            freelocale(PL_C_locale_obj);                    \
+                            PL_C_locale_obj = (locale_t) NULL;              \
+                        }                                                   \
+                    } STMT_END
+#  else
+#    define LOCALE_TERM_POSIX_2008_  NOOP
+#  endif
+#  define LOCALE_TERM           STMT_START {                                \
+                                    LOCALE_TERM_POSIX_2008_;                \
+    dTHX;\
+            DEBUG_L(PerlIO_printf(Perl_debug_log,                          \
+                               "%s: %d: terminating locale=%p\n",          \
+                                __FILE__, __LINE__, &PL_locale_mutex));  \
+            /*Perl_set_numeric_standard(aTHX);*/                                \
+            DEBUG_L(PerlIO_printf(Perl_debug_log,                          \
+                               "%s: %d: now standard=%p\n",          \
+                                __FILE__, __LINE__, &PL_locale_mutex));  \
+                                    MUTEX_DESTROY(&PL_locale_mutex);        \
+            DEBUG_L(PerlIO_printf(Perl_debug_log,                          \
+                               "%s: %dabout to destroy=%p\n",          \
+                                __FILE__, __LINE__, &PL_locale_mutex));  \
+                                } STMT_END
+
+#  if (  ! defined(USE_THREAD_SAFE_LOCALE)                              \
+       || (   defined(HAS_LOCALECONV)                                   \
+           && (  ! defined(HAS_LOCALECONV_L)                            \
+               ||  defined(TS_W32_BROKEN_LOCALECONV)))                  \
+       || (   defined(HAS_NL_LANGINFO)                                  \
+           && ! defined(HAS_THREAD_SAFE_NL_LANGINFO_L))                 \
+       || (defined(HAS_MBLEN)  && ! defined(HAS_MBRLEN))                \
+       || (defined(HAS_MBTOWC) && ! defined(HAS_MBRTOWC))               \
+       || (defined(HAS_WCTOMB) && ! defined(HAS_WCRTOMB)))
+
+
+   /* Here, we will need critical sections in more than rare cases in locale
+    * handling, because one or more of the above conditions are true.  This
+    * could be because the platform doesn't have thread-safe locales, or that
+    * at least one of the locale-dependent functions in the core isn't
+    * thread-safe.  The latter case is generally because they return a pointer
+    * to a static buffer, which may be per-process instead of per-thread.
+    * There are supposedly re-entrant, safe versions for all of them Perl
+    * currently uses (which the #if above checks for), but most platforms don't
+    * have all the needed ones available, and the Posix standard doesn't
+    * require nl_langinfo_l() to be fully thread-safe, so a Configure probe was
+    * written.  localeconv_l() is uncommon, and judging by bug reports on the
+    * web, some earlier library localeconv_l versions were broken, so perhaps a
+    * probe is in order for that, but it would be a pain to write.
     *
     * On non-thread-safe systems, some of the above functions are vulnerable to
     * races should another thread get control and change the locale in the
@@ -6678,47 +6739,63 @@ the plain locale pragma without a parameter (S<C<use locale>>) is in effect.
     * Clang improperly gives warnings for this, if not silenced:
     * https://clang.llvm.org/docs/ThreadSafetyAnalysis.html#conditional-locks
     */
-#  define LOCALE_LOCK_(cond_to_panic_if_already_locked)                     \
-        STMT_START {                                                        \
-            CLANG_DIAG_IGNORE(-Wthread-safety)	     	                    \
-            if (PL_locale_mutex_depth <= 0) {                               \
-                MUTEX_LOCK(&PL_locale_mutex);                               \
-                PL_locale_mutex_depth = 1;                                  \
-                DEBUG_Lv(PerlIO_printf(Perl_debug_log,                      \
-                         "%s: %d: locking locale; depth=1\n",               \
-                         __FILE__, __LINE__));                              \
-            }                                                               \
-            else {                                                          \
-                PL_locale_mutex_depth++;                                    \
-                DEBUG_Lv(PerlIO_printf(Perl_debug_log,                      \
-                        "%s: %d: avoided locking locale; new depth=%d\n",   \
-                        __FILE__, __LINE__, PL_locale_mutex_depth));        \
-                if (cond_to_panic_if_already_locked) {                      \
-                    Perl_croak_nocontext("panic: %s: %d: Trying to change"  \
-                                         " LC_NUMERIC incompatibly",        \
-                                         __FILE__, __LINE__);               \
-                }                                                           \
-            }                                                               \
-            CLANG_DIAG_RESTORE                                              \
-        } STMT_END
-#  define LOCALE_UNLOCK_                                                    \
-        STMT_START {                                                        \
-            if (PL_locale_mutex_depth <= 1) {                               \
-                MUTEX_UNLOCK(&PL_locale_mutex);                             \
-                PL_locale_mutex_depth = 0;                                  \
-                DEBUG_Lv(PerlIO_printf(Perl_debug_log,                      \
-                         "%s: %d: unlocking locale; depth=0\n",             \
-                         __FILE__, __LINE__));                              \
-            }                                                               \
-            else {                                                          \
-                PL_locale_mutex_depth--;                                    \
-                DEBUG_Lv(PerlIO_printf(Perl_debug_log,                      \
-                        "%s: %d: avoided unlocking locale; new depth=%d\n", \
-                        __FILE__, __LINE__, PL_locale_mutex_depth));        \
-            }                                                               \
-        } STMT_END
+#    define LOCALE_LOCK_(cond_to_panic_if_already_locked)                   \
+                         LOCALE_BASE_LOCK_(cond_to_panic_if_already_locked)
+#    define LOCALE_UNLOCK_  LOCALE_BASE_UNLOCK_
+#  else
+#    define LOCALE_LOCK_(cond)  NOOP
+#    define LOCALE_UNLOCK_      NOOP
+#  endif
+#  if ! defined(USE_THREAD_SAFE_LOCALE)
+#    define LC_NUMERIC_LOCK(cond_to_panic_if_already_locked)                \
+                            LOCALE_LOCK_(cond_to_panic_if_already_locked)
+#    define LC_NUMERIC_UNLOCK  LOCALE_UNLOCK_
 
-   /* We do define a different macro for each case; then if we want to have
+     /* The rest of the categories can be defined in terms of this base macro.
+      * */
+#    define LC_foo_LOCK_(cat)                                               \
+        STMT_START {                                                        \
+            const char * actual;                                            \
+            const char * wanted;                                            \
+            dTHX;                                                           \
+                                                                            \
+            LOCALE_LOCK_(0);                                                \
+            actual = setlocale(LC_##cat, NULL);                             \
+            wanted = PL_curlocales[LC_##cat##_INDEX_];          \
+            DEBUG_Lv(PerlIO_printf(Perl_debug_log, "%s: %d: actual=%s, wanted=%s\n",  __FILE__,  __LINE__, actual, wanted)); \
+            if (strNE(actual, wanted)) {                                    \
+                Perl_setlocale(LC_##cat, wanted);                     \
+            }                                                               \
+        } STMT_END
+#    define LC_foo_UNLOCK_(cat)   LOCALE_UNLOCK_
+
+#    ifdef USE_LOCALE_COLLATE
+#      define LC_COLLATE_LOCK    LC_foo_LOCK_(COLLATE)
+#      define LC_COLLATE_UNLOCK  LC_foo_UNLOCK_(COLLATE)
+#    endif
+#    ifdef USE_LOCALE_CTYPE
+#      define LC_CTYPE_LOCK    LC_foo_LOCK_(CTYPE)
+#      define LC_CTYPE_UNLOCK  LC_foo_UNLOCK_(CTYPE)
+#    endif
+#    ifdef USE_LOCALE_MONETARY
+#      define LC_MONETARY_LOCK    LC_foo_LOCK_(MONETARY)
+#      define LC_MONETARY_UNLOCK  LC_foo_UNLOCK_(MONETARY)
+#    endif
+#    ifdef USE_LOCALE_TIME
+#      define LC_TIME_LOCK    LC_foo_LOCK_(TIME)
+#      define LC_TIME_UNLOCK  LC_foo_UNLOCK_(TIME)
+#    endif
+
+     /* Currently, we just pretend there is a readers lock */
+#    define LOCALE_READ_LOCK    LOCALE_LOCK_(0)
+#    define LOCALE_READ_UNLOCK  LOCALE_UNLOCK_
+
+#    define SETLOCALE_LOCK      LOCALE_LOCK_(0)
+#    define SETLOCALE_UNLOCK    LOCALE_UNLOCK_
+#  endif    /* ! USE_THREAD_SAFE_LOCALE) */
+
+   /* The rest of these may need to be locked even if there is a thread safe locale, as they may not be reentrant.  They do not automatically get any reentrant versions substituted for them in reentr.h.  Instead, XS code should do the testing itself or do perl_call of the POSIX 
+    Now define some lock functions for individual functions.  Some of these assume reentrancy We do define a different macro for each case; then if we want to have
     * separate mutexes for some of them, the only changes needed are here.
     * Define just the necessary macros.  The compiler should then croak if the
     * #ifdef's in the code are incorrect */
@@ -6745,47 +6822,51 @@ the plain locale pragma without a parameter (S<C<use locale>>) is in effect.
 #    define WCTOMB_LOCK   LOCALE_LOCK_(0)
 #    define WCTOMB_UNLOCK LOCALE_UNLOCK_
 #  endif
-#  if defined(USE_THREAD_SAFE_LOCALE)
-     /* On locale thread-safe systems, we don't need these workarounds */
-#    define LC_NUMERIC_LOCK(cond)   NOOP
-#    define LC_NUMERIC_UNLOCK       NOOP
+#endif
 
-     /* There may be instance core where we this is invoked yet should do
-      * nothing.  Rather than have #ifdef's around them, define it here */
-#    define SETLOCALE_LOCK    NOOP
-#    define SETLOCALE_UNLOCK  NOOP
-#  else
-#    define SETLOCALE_LOCK   LOCALE_LOCK_(0)
-#    define SETLOCALE_UNLOCK LOCALE_UNLOCK_
-
-#    define LC_NUMERIC_LOCK(cond_to_panic_if_already_locked)                \
-                            LOCALE_LOCK_(cond_to_panic_if_already_locked)
-
-#    define LC_NUMERIC_UNLOCK  LOCALE_UNLOCK_
-#  endif
-
-#  ifdef USE_POSIX_2008_LOCALE
-     /* We have a locale object holding the 'C' locale for Posix 2008 */
-#    define LOCALE_TERM_POSIX_2008_                                         \
-                    STMT_START {                                            \
-                        if (PL_C_locale_obj) {                              \
-                            /* Make sure we aren't using the locale         \
-                             * space we are about to free */                \
-                            uselocale(LC_GLOBAL_LOCALE);                    \
-                            freelocale(PL_C_locale_obj);                    \
-                            PL_C_locale_obj = (locale_t) NULL;              \
-                        }                                                   \
-                    } STMT_END
-#  else
-#    define LOCALE_TERM_POSIX_2008_  NOOP
-#  endif
-
-#  define LOCALE_INIT           MUTEX_INIT(&PL_locale_mutex);
-
-#  define LOCALE_TERM           STMT_START {                                \
-                                    MUTEX_DESTROY(&PL_locale_mutex);        \
-                                    LOCALE_TERM_POSIX_2008_;                \
-                                } STMT_END
+#ifndef LC_NUMERIC_LOCK
+#  define LC_NUMERIC_LOCK(cond)   NOOP
+#  define LC_NUMERIC_UNLOCK       NOOP
+#endif
+#ifndef LC_COLLATE_LOCK
+#  define LC_COLLATE_LOCK         NOOP
+#  define LC_COLLATE_UNLOCK       NOOP
+#endif
+#ifndef LC_CTYPE_LOCK
+#  define LC_CTYPE_LOCK           NOOP
+#  define LC_CTYPE_UNLOCK         NOOP
+#endif
+#ifndef LC_MONETARY_LOCK
+#  define LC_MONETARY_LOCK        NOOP
+#  define LC_MONETARY_UNLOCK      NOOP
+#endif
+#ifndef LC_TIME_LOCK
+#  define LC_TIME_LOCK            NOOP
+#  define LC_TIME_UNLOCK          NOOP
+#endif
+#ifndef LOCALE_READ_LOCK
+#  define LOCALE_READ_LOCK        NOOP
+#  define LOCALE_READ_UNLOCK      NOOP
+#endif
+#ifndef SETLOCALE_LOCK
+#  define SETLOCALE_LOCK          NOOP
+#  define SETLOCALE_UNLOCK        NOOP
+#endif
+#ifndef MBLEN_LOCK
+#  define MBLEN_LOCK                NOOP
+#  define MBLEN_UNLOCK              NOOP
+#endif
+#ifndef MBTOWC_LOCK
+#  define MBTOWC_LOCK               NOOP
+#  define MBTOWC_UNLOCK             NOOP
+#endif
+#ifndef NL_LANGINFO_LOCK
+#  define NL_LANGINFO_LOCK          NOOP
+#  define NL_LANGINFO_UNLOCK        NOOP
+#endif
+#ifndef WCTOMB_LOCK
+#  define WCTOMB_LOCK               NOOP
+#  define WCTOMB_UNLOCK             NOOP
 #endif
 
 #ifdef USE_LOCALE_NUMERIC
