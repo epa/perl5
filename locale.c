@@ -5355,7 +5355,7 @@ Perl_switch_to_global_locale()
     {
         unsigned int i;
 
-        for (i = 0; i < LC_ALL_INDEX_; i++) {
+        for (i = 0; i < NOMINAL_LC_ALL_INDEX; i++) {
             setlocale(categories[i], do_querylocale_r(categories[i]));
         }
     }
@@ -5427,7 +5427,7 @@ Perl_sync_locale()
 
         /* We can't trust that we can read the LC_ALL format on the
          * platform, so do them individually */
-        for (i = 0; i < LC_ALL_INDEX_; i++) {
+        for (i = 0; i < NOMINAL_LC_ALL_INDEX; i++) {
             do_void_setlocale_r(categories[i], do_querylocale_r(categories[i]));
         }
 
