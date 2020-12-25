@@ -589,7 +589,17 @@ S_do_querylocale(const unsigned int index)
     DEBUG_Lv(PerlIO_printf(Perl_debug_log, "%s:%d: do_querylocale %p\n",
                                            __FILE__, __LINE__, cur_obj));
     if (cur_obj == LC_GLOBAL_LOCALE) {
-        return my_setlocale(category, NULL);
+        char * retval;
+
+        /* We do not try to emulate thread safety for any threads converted to
+         * the global locale, for reasons outlined at the beginning of the
+         * file.  We do, however, try to prevent races */
+
+        LOCALE_BASE_LOCK_;
+        retval = save_to_buffer(my_setlocale(category, NULL),
+                                &PL_setlocale_buf, &PL_setlocale_bufsize, 0);
+        LOCALE_BASE_UNLOCK_;
+        return retval;
     }
 
 #    ifdef HAS_QUERYLOCALE
