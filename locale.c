@@ -1367,6 +1367,9 @@ S_new_numeric(pTHX_ const char *newnum)
     if (! PL_numeric_name || strNE(PL_numeric_name, save_newnum)) {
 	Safefree(PL_numeric_name);
 	PL_numeric_name = save_newnum;
+        DEBUG_L( PerlIO_printf(Perl_debug_log,
+                               "stashing PL_numeric_name=%s\n",
+                               PL_numeric_name));
     }
     else {
 	Safefree(save_newnum);
@@ -2227,6 +2230,10 @@ Perl_setlocale(const int category, const char * locale)
     unsigned int index;
     dTHX;
 
+    DEBUG_Lv(PerlIO_printf(Perl_debug_log,
+                           "%s:%d: entering setlocale(%d, %s)\n",
+                           __FILE__, __LINE__, category, locale));
+
     /* A NULL locale means only query what the current one is. */
     if (locale == NULL) {
 
@@ -2240,6 +2247,9 @@ Perl_setlocale(const int category, const char * locale)
         /* We have the LC_NUMERIC name saved, because we are normally switched
          * into the C locale (or equivalent) for it. */
         if (category == LC_NUMERIC) {
+            DEBUG_Lv(PerlIO_printf(Perl_debug_log,
+                     "%s:%d: returning stashed numeric=%s\n",
+                     __FILE__, __LINE__, PL_numeric_name));
 
             /* We don't have to copy this return value, as it is a per-thread
              * variable, and won't change until a future setlocale */
@@ -2310,6 +2320,7 @@ Perl_setlocale(const int category, const char * locale)
 #  endif
 
     ) {
+        DEBUG_L(PerlIO_printf(Perl_debug_log, "%s:%d: underlying=%d\n", __FILE__, __LINE__, PL_numeric_underlying));
         SETLOCALE_UNLOCK;
         return retval;
     }
@@ -2326,14 +2337,25 @@ Perl_setlocale(const int category, const char * locale)
         return NULL;
     }
 
+    DEBUG_Lv(PerlIO_printf(Perl_debug_log,
+                "%s:%d: retval=%s\n",
+                __FILE__, __LINE__, retval));
+
     /* Now that have switched locales, we have to update our records to
      * correspond.  Only certain categories have extra work to update. */
     index = get_category_index(category, locale);
     if (update_functions[index]) {
+        DEBUG_Lv(PerlIO_printf(Perl_debug_log,
+                    "%s:%d: index=%d, category=%s, retval=%s\n",
+                    __FILE__, __LINE__, index, category_names[index], retval));
         update_functions[index](aTHX_ retval);
     }
 
     SETLOCALE_UNLOCK;
+
+    DEBUG_Lv(PerlIO_printf(Perl_debug_log,
+                "%s:%d: returning %s\n",
+                __FILE__, __LINE__, retval));
 
     return retval;
 
