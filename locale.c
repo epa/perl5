@@ -415,12 +415,18 @@ S_category_name(const int category)
 #  define my_setlocale(cat, locale) setlocale(cat, locale)
 #endif
 
-#ifndef USE_POSIX_2008_LOCALE
+/* In contrast to my_setlocale(), the do_setlocale() macros are our added
+ * layers of functionality upon the base setlocale().  For non-threaded perls,
+ * they just call the base-level functions.  "do_setlocale_c" is intended to be
+ * called when the category is a constant known at compile time;
+ * "do_setlocale_r", not known until run time  */
+#if    !  defined(USE_ITHREADS)                                 \
+    ||   (defined(WIN32) && defined(USE_THREAD_SAFE_LOCALE))
 
-/* In contrast, the do_setlocale() macros are our added layers upon the base
- * setlocale.  For non-threaded perls, they just call the base-level functions.
- * "do_setlocale_c" is intended to be called when the category is a constant
- * known at compile time; "do_setlocale_r", not known until run time  */
+  /* Here, we have an unthreaded perl, or a thread-safe Windows one in which
+   * threading is invisible to us.  Use the system setlocale().  Note that this
+   * means that on Windows, if a program has turned off thread-safety at run
+   * time, say by using switch_to_global locale(), races may occur. */
 #  define do_setlocale_c(cat, locale)       my_setlocale(cat, locale)
 #  define do_setlocale_r(cat, locale)       my_setlocale(cat, locale)
 
@@ -436,9 +442,20 @@ S_category_name(const int category)
 
 #  define FIX_GLIBC_LC_MESSAGES_BUG(i)
 
-#else   /* Below uses POSIX 2008 */
+#elif ! defined(USE_POSIX_2008_LOCALE)                   \
+   && ! defined(USE_THREAD_SAFE_LOCALE_EMULATION)
 
-#  if ! defined(HAS_QUERYLOCALE)
+#  error Unimplemented to not have thread-safe emulation
+
+#else
+
+/* Here, there are threads, and Perl is to provide some thread-safe locale
+ * support.  The two cases are POSIX 2008, and our thread-safe emulation,
+ * described in the introductory comments of this file.  What they have in
+ * common is, except for systems with querylocale() which don't need this, a
+ * mechanism to save and query the current locales for each category */
+
+#  if ! defined(USE_POSIX_2008) || ! defined(HAS_QUERYLOCALE)
 
 STATIC const char *
 S_query_PL_curlocales(const unsigned int index)
@@ -462,15 +479,132 @@ S_query_PL_curlocales(const unsigned int index)
     return PL_curlocales[index];
 }
 
-#  endif /* ! defined(HAS_QUERYLOCALE) */
+#  endif /* Need PL_curlocales[] */
 
-/* We emulate setlocale with our own function.  LC_CTYPE and kin are not valid
- * for the POSIX 2008 functions.  Instead LC_CTYPE_MASK etc, are used.  We use
- * an array lookup to convert to.  At compile time we have defined
- * XXX LC_CTYPE_INDEX_ as the proper offset into the array 'category_masks[]'.  At
- * runtime, we have to search through the array (as the actual numbers may not
- * be small contiguous positive integers which would lend themselves to array
- * lookup). */
+/* Here, done with the common code for threaded perls. */
+
+#  if defined(USE_THREAD_SAFE_LOCALE_EMULATION)
+
+/* Here, use our emulation of thread safe locales.  PL_curlocales[] keeps what
+ * the name of the locale should be for each category in the current thread.
+ * And so, S_do_setlocale_i() wraps each call to the system's setlocale() with
+ * saving the return into PL_curlocales. */
+
+/* Like the Perl language 'wantarray' */
+typedef enum { WANT_VOID, WANT_BOOL, WANT_LOCALE } setlocale_returns;
+
+#    define do_setlocale_c(cat, locale)                                       \
+                    S_do_setlocale_i(aTHX_ cat##_INDEX_, locale, WANT_LOCALE)
+#    define do_void_setlocale_c(cat, locale)                                  \
+           ((void ) S_do_setlocale_i(aTHX_ cat##_INDEX_, locale, WANT_VOID))
+#    define do_bool_setlocale_c(cat, locale)                                  \
+              cBOOL(S_do_setlocale_i(aTHX_ cat##_INDEX_, locale, WANT_BOOL))
+
+#    define do_setlocale_r(cat, locale)                                       \
+       S_do_setlocale_i(aTHX_ S_get_category_index(cat, locale), locale,      \
+                                                                 WANT_LOCALE)
+#    define do_void_setlocale_r(cat, locale)                                  \
+   ((void ) S_do_setlocale_i(aTHX_ S_get_category_index(cat, locale), locale, \
+                                                                 WANT_VOID))
+#    define do_bool_setlocale_r(cat, locale)                                  \
+      cBOOL(S_do_setlocale_i(aTHX_ S_get_category_index(cat, locale), locale, \
+                                                                 WANT_BOOL))
+
+#    define do_querylocale_i(i)    S_query_PL_curlocales(i)
+#    define do_querylocale_c(cat)  do_querylocale_i(cat##_INDEX_)
+#    define do_querylocale_r(cat)                                              \
+                            do_querylocale_i(S_get_category_index(cat, NULL))
+
+STATIC char *
+S_do_setlocale_i(pTHX_ const unsigned int cat_index, const char * locale,
+                       const setlocale_returns ret_type)
+{
+    /* Set the locale to 'locale' for the category given by our internal index
+     * number. 'ret_type' gives what sort of return value is needed */
+
+    int category;
+    char * newlocale;
+    const bool interuptible_on_entry =
+                             (   PL_locale_mutex_depth <= 0
+
+                                 /* Early on, there can't be another thread */
+                              && LIKELY(PL_phase != PERL_PHASE_CONSTRUCT));
+
+    if (cat_index > NOMINAL_LC_ALL_INDEX) { /* Out-of bounds */
+        return NULL;
+    }
+
+    category = categories[cat_index];
+
+    /* This all better be done within a critical section.  If the value is to
+     * be returned, the caller better have put this entire call within such a
+     * section.  But if no return is needed, we can just create the section
+     * ourselves, as we are just setting our per-thread data structure to the
+     * input.  Also we can reliably return true or false (if that's all that is
+     * required), without being entirely enclosed in a critical section */
+    if (interuptible_on_entry) {
+        if (ret_type == WANT_LOCALE) {
+            Perl_croak(aTHX_ "panic: %s: %d: do_setlocale_i(%d (category=%s),"
+                             " \"%s\", %d) should be called only when protected"
+                             " by mutex\n",
+                             __FILE__, __LINE__, cat_index,
+                             category_names[cat_index], locale,
+                             (int) ret_type);
+        }
+
+        SETLOCALE_LOCK;
+    }
+
+    newlocale = my_setlocale(category, locale);
+
+    if (newlocale == NULL) {
+        if (interuptible_on_entry) {
+            SETLOCALE_UNLOCK;
+        }
+        return NULL;
+    }
+
+    if (PL_curlocales[cat_index]) {
+        Safefree(PL_curlocales[cat_index]);
+    }
+
+    PL_curlocales[cat_index] = savepv(newlocale);
+
+#    ifdef LC_ALL
+
+    /* We have to update either our saved LC_ALL with this new locale, or all
+     * the other saved categories due to the LC_ALL change.  All are available
+     * from querying the system setlocale() */
+    if (category != LC_ALL) {
+        if (PL_curlocales[LC_ALL_INDEX_]) {
+            Safefree(PL_curlocales[LC_ALL_INDEX_]);
+        }
+        PL_curlocales[LC_ALL_INDEX_] = savepv(my_setlocale(LC_ALL, NULL));
+    }
+    else {
+        unsigned int i;
+        for (i = 0; i < LC_ALL_INDEX_; i++) {
+            Safefree(PL_curlocales[i]);
+            PL_curlocales[i] = savepv(my_setlocale(i, NULL));
+        }
+    }
+
+#    endif
+
+    if (interuptible_on_entry) {
+        SETLOCALE_UNLOCK;
+    }
+
+    return PL_curlocales[cat_index];
+}
+
+#  else   /* Above was our thread-safe emulation; below uses POSIX 2008 */
+
+/* Here, there is a completely different API to get thread-safe locales.  We
+ * emulate the setlocale() API with our own function.  Categories, like
+ * LC_NUMERIC, are not valid here for the POSIX 2008 API.  Instead
+ * LC_NUMERIC_MASK is used, which we convert to using get_category_index(). */
+
 #    define do_setlocale_c(cat, locale)                                       \
                                  emulate_setlocale(cat##_INDEX_, locale, 1)
 #    define do_void_setlocale_c(cat, locale)                                  \
@@ -1117,6 +1251,8 @@ S_emulate_setlocale(const unsigned int index,
 }
 
 #  endif /* USE_POSIX_2008_LOCALE */
+#endif   /* End of the various implementations of the do_setlocale and
+            do_querylocale macros used in the remainder of this program */
 
 #ifdef USE_LOCALE
 
