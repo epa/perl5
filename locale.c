@@ -2280,6 +2280,40 @@ Perl_setlocale(const int category, const char * locale)
         return retval;
     } /* End of querying the current locale */
 
+    /* Here, the input has a locale to change to. */
+
+    SETLOCALE_LOCK;
+
+    retval = save_to_buffer(do_querylocale_r(category),
+                                &PL_setlocale_buf, &PL_setlocale_bufsize, 0);
+
+    /* If the new locale  is the same as the current one, nothing is actually
+     * being changed, so do nothing. */
+    if (   strEQ(retval, locale)
+
+#  if defined(USE_LOCALE_NUMERIC)
+
+        /* But the new LC_NUMERIC locale could actually be changing the
+         * standard locale into the current underlying one, so must change that
+         * so that our records get updated. */
+        && (category != LC_NUMERIC || ! PL_numeric_underlying)
+
+#    if defined(LC_ALL)
+
+        /* And, if we are changing all categories, LC_NUMERIC may be getting
+         * changed as well, so if it isn't also already the new locale, we
+         * can't skip the change */
+        && (category != LC_ALL || strEQ(locale, PL_numeric_name))
+
+#    endif
+
+#  endif
+
+    ) {
+        SETLOCALE_UNLOCK;
+        return retval;
+    }
+
     retval = save_to_buffer(do_setlocale_r(category, locale),
                                 &PL_setlocale_buf, &PL_setlocale_bufsize, 0);
 
@@ -2288,6 +2322,7 @@ Perl_setlocale(const int category, const char * locale)
             setlocale_debug_string(category, locale, retval)));
 
     if (! retval) {
+        SETLOCALE_UNLOCK;
         return NULL;
     }
 
@@ -2297,6 +2332,8 @@ Perl_setlocale(const int category, const char * locale)
     if (update_functions[index]) {
         update_functions[index](aTHX_ retval);
     }
+
+    SETLOCALE_UNLOCK;
 
     return retval;
 
