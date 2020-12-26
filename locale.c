@@ -318,17 +318,13 @@ S_get_category_index(const int category, const char * locale)
         }
     }
 
-    {
-        dTHX;
-
-        /* Here, we don't know about this category, so can't handle it. */
-        if (! locale) {
-            locale = "(unknown)";
-        }
-        Perl_warner(aTHX_ packWARN(WARN_LOCALE),
-                            "Unknown locale category %d; can't set it to %s\n",
-                                                     category, locale);
+    /* Here, we don't know about this category, so can't handle it. */
+    if (! locale) {
+        locale = "(unknown)";
     }
+    Perl_warner_nocontext(packWARN(WARN_LOCALE),
+                          "Unknown locale category %d; can't set it to %s\n",
+                          category, locale);
 
     /* Return an out-of-bounds value */
     return NOMINAL_LC_ALL_INDEX + 1;
