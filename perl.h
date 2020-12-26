@@ -4457,8 +4457,8 @@ Gid_t getegid (void);
       * does memory allocation, either directly or indirectly. */
 #  define DEBUG_m(a)  \
     STMT_START {					                \
+        dTHX;                                                           \
         if (PERL_GET_INTERP) {                                          \
-                                dTHX;                                   \
                                 if (DEBUG_m_TEST) {                     \
                                     PL_debug &= ~DEBUG_m_FLAG;          \
                                     a;                                  \
@@ -4469,7 +4469,11 @@ Gid_t getegid (void);
 
 #  define DEBUG__(t, a)                                                 \
         STMT_START {                                                    \
-          if (t) STMT_START { dSAVE_ERRNO; a; RESTORE_ERRNO;} STMT_END; \
+            dTHX;                                                       \
+            if (t) STMT_START { dSAVE_ERRNO;                            \
+                                a;                                      \
+                                RESTORE_ERRNO;                          \
+                              } STMT_END;                               \
         } STMT_END
 
 #  define DEBUG_f(a) DEBUG__(DEBUG_f_TEST, a)
