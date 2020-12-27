@@ -722,7 +722,7 @@ PERLVAR(I, padix_floor,	PADOFFSET)	/* how low may inner block reset padix */
  && defined(USE_THREAD_SAFE_LOCALE)         \
  && ! defined(HAS_QUERYLOCALE)
 
-PERLVARA(I, curlocales, 12, char *)
+PERLVARA(I, curlocales, 12, const char *)
 
 #endif
 #ifdef USE_LOCALE_COLLATE
