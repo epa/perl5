@@ -55,8 +55,8 @@ SKIP: { # perl #127708
 }
 
 SKIP: {
-    skip("POSIX version doesn't support thread-safe locale operations", 1)
-                                                unless ${^SAFE_LOCALES};
+    #skip("POSIX version doesn't support thread-safe locale operations", 1)
+    #                                            unless ${^SAFE_LOCALES};
 
     my @locales = find_locales( 'LC_NUMERIC' );
     skip("No LC_NUMERIC locales available", 1) unless @locales;

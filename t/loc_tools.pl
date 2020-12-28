@@ -197,7 +197,7 @@ sub locales_enabled(;$) {
     # definition of safety is sufficient, and necessary to get some tests to
     # run on certain configurations on certain platforms.  But beware that the
     # main thread can change the locale of any subthreads unless
-    # ${^SAFE_LOCALES} is non-zero.
+    # XXX ${^SAFE_LOCALES} is non-zero.
     #
     # Use the optional parameter to discover if a particular category or
     # categories are available on the system.  1 is returned if the global
@@ -229,7 +229,7 @@ sub locales_enabled(;$) {
     # Don't test locales where they aren't safe.  On systems with unsafe
     # threads, for the purposes of testing, we consider the main thread safe,
     # and all other threads unsafe.
-    if (! ${^SAFE_LOCALES}) {
+    if ($Config{ccflags} =~ /\bD?NO_THREAD_SAFE_LOCALE_EMULATION\b/) {
         require threads;
         return 0 if threads->tid() != 0;
     }
