@@ -823,10 +823,6 @@ typedef struct {
 #  ifdef HAS_ASCTIME_R
 #    if defined(PERL_REENTR_API) && (PERL_REENTR_API+0 == 1)
 #      undef asctime
-#      undef ASCTIME_LOCK
-#      define ASCTIME_LOCK  LOCALE_READ_LOCK
-#      undef ASCTIME_UNLOCK
-#      define ASCTIME_UNLOCK  LOCALE_READ_UNLOCK
 #      if !defined(asctime) && ASCTIME_R_PROTO == REENTRANT_PROTO_B_SB
 #        define asctime(a) asctime_r(a, PL_reentrant_buffer->_asctime_buffer)
 #      endif
@@ -1071,10 +1067,6 @@ typedef struct {
 #  ifdef HAS_GETHOSTBYADDR_R
 #    if defined(PERL_REENTR_API) && (PERL_REENTR_API+0 == 1)
 #      undef gethostbyaddr
-#      undef GETHOSTBYADDR_LOCK
-#      define GETHOSTBYADDR_LOCK  ENVr_LOCALEr_LOCK
-#      undef GETHOSTBYADDR_UNLOCK
-#      define GETHOSTBYADDR_UNLOCK  ENVr_LOCALEr_UNLOCK
 #      if !defined(gethostbyaddr) && GETHOSTBYADDR_R_PROTO == REENTRANT_PROTO_I_CWISBWRE
 #        define gethostbyaddr(a, b, c) ((PL_reentrant_retint = gethostbyaddr_r(a, b, c, &PL_reentrant_buffer->_hostent_struct, PL_reentrant_buffer->_hostent_buffer, PL_reentrant_buffer->_hostent_size, &PL_reentrant_buffer->_hostent_ptr, &PL_reentrant_buffer->_hostent_errno)) == 0 ? PL_reentrant_buffer->_hostent_ptr : ((PL_reentrant_retint == ERANGE) ? (struct hostent *) Perl_reentrant_retry("gethostbyaddr", a, b, c) : 0))
 #      endif
@@ -1118,10 +1110,6 @@ typedef struct {
 #  ifdef HAS_GETHOSTBYNAME_R
 #    if defined(PERL_REENTR_API) && (PERL_REENTR_API+0 == 1)
 #      undef gethostbyname
-#      undef GETHOSTBYNAME_LOCK
-#      define GETHOSTBYNAME_LOCK  ENVr_LOCALEr_LOCK
-#      undef GETHOSTBYNAME_UNLOCK
-#      define GETHOSTBYNAME_UNLOCK  ENVr_LOCALEr_UNLOCK
 #      if !defined(gethostbyname) && GETHOSTBYNAME_R_PROTO == REENTRANT_PROTO_I_CSBWRE
 #        define gethostbyname(a) ((PL_reentrant_retint = gethostbyname_r(a, &PL_reentrant_buffer->_hostent_struct, PL_reentrant_buffer->_hostent_buffer, PL_reentrant_buffer->_hostent_size, &PL_reentrant_buffer->_hostent_ptr, &PL_reentrant_buffer->_hostent_errno)) == 0 ? PL_reentrant_buffer->_hostent_ptr : ((PL_reentrant_retint == ERANGE) ? (struct hostent *) Perl_reentrant_retry("gethostbyname", a) : 0))
 #      endif
@@ -1191,10 +1179,6 @@ typedef struct {
 #  ifdef HAS_GETNETBYADDR_R
 #    if defined(PERL_REENTR_API) && (PERL_REENTR_API+0 == 1)
 #      undef getnetbyaddr
-#      undef GETNETBYADDR_LOCK
-#      define GETNETBYADDR_LOCK  LOCALE_READ_LOCK
-#      undef GETNETBYADDR_UNLOCK
-#      define GETNETBYADDR_UNLOCK  LOCALE_READ_UNLOCK
 #      if !defined(getnetbyaddr) && GETNETBYADDR_R_PROTO == REENTRANT_PROTO_I_UISBWRE
 #        define getnetbyaddr(a, b) ((PL_reentrant_retint = getnetbyaddr_r(a, b, &PL_reentrant_buffer->_netent_struct, PL_reentrant_buffer->_netent_buffer, PL_reentrant_buffer->_netent_size, &PL_reentrant_buffer->_netent_ptr, &PL_reentrant_buffer->_netent_errno)) == 0 ? PL_reentrant_buffer->_netent_ptr : ((PL_reentrant_retint == ERANGE) ? (struct netent *) Perl_reentrant_retry("getnetbyaddr", a, b) : 0))
 #      endif
@@ -1229,10 +1213,6 @@ typedef struct {
 #  ifdef HAS_GETNETBYNAME_R
 #    if defined(PERL_REENTR_API) && (PERL_REENTR_API+0 == 1)
 #      undef getnetbyname
-#      undef GETNETBYNAME_LOCK
-#      define GETNETBYNAME_LOCK  LOCALE_READ_LOCK
-#      undef GETNETBYNAME_UNLOCK
-#      define GETNETBYNAME_UNLOCK  LOCALE_READ_UNLOCK
 #      if !defined(getnetbyname) && GETNETBYNAME_R_PROTO == REENTRANT_PROTO_I_CSBWRE
 #        define getnetbyname(a) ((PL_reentrant_retint = getnetbyname_r(a, &PL_reentrant_buffer->_netent_struct, PL_reentrant_buffer->_netent_buffer, PL_reentrant_buffer->_netent_size, &PL_reentrant_buffer->_netent_ptr, &PL_reentrant_buffer->_netent_errno)) == 0 ? PL_reentrant_buffer->_netent_ptr : ((PL_reentrant_retint == ERANGE) ? (struct netent *) Perl_reentrant_retry("getnetbyname", a) : 0))
 #      endif
@@ -1283,10 +1263,6 @@ typedef struct {
 #  ifdef HAS_GETPROTOBYNAME_R
 #    if defined(PERL_REENTR_API) && (PERL_REENTR_API+0 == 1)
 #      undef getprotobyname
-#      undef GETPROTOBYNAME_LOCK
-#      define GETPROTOBYNAME_LOCK  LOCALE_READ_LOCK
-#      undef GETPROTOBYNAME_UNLOCK
-#      define GETPROTOBYNAME_UNLOCK  LOCALE_READ_UNLOCK
 #      if !defined(getprotobyname) && GETPROTOBYNAME_R_PROTO == REENTRANT_PROTO_I_CSBWR
 #        define getprotobyname(a) ((PL_reentrant_retint = getprotobyname_r(a, &PL_reentrant_buffer->_protoent_struct, PL_reentrant_buffer->_protoent_buffer, PL_reentrant_buffer->_protoent_size, &PL_reentrant_buffer->_protoent_ptr)) == 0 ? PL_reentrant_buffer->_protoent_ptr : ((PL_reentrant_retint == ERANGE) ? (struct protoent *) Perl_reentrant_retry("getprotobyname", a) : 0))
 #      endif
@@ -1306,10 +1282,6 @@ typedef struct {
 #  ifdef HAS_GETPROTOBYNUMBER_R
 #    if defined(PERL_REENTR_API) && (PERL_REENTR_API+0 == 1)
 #      undef getprotobynumber
-#      undef GETPROTOBYNUMBER_LOCK
-#      define GETPROTOBYNUMBER_LOCK  LOCALE_READ_LOCK
-#      undef GETPROTOBYNUMBER_UNLOCK
-#      define GETPROTOBYNUMBER_UNLOCK  LOCALE_READ_UNLOCK
 #      if !defined(getprotobynumber) && GETPROTOBYNUMBER_R_PROTO == REENTRANT_PROTO_I_ISBWR
 #        define getprotobynumber(a) ((PL_reentrant_retint = getprotobynumber_r(a, &PL_reentrant_buffer->_protoent_struct, PL_reentrant_buffer->_protoent_buffer, PL_reentrant_buffer->_protoent_size, &PL_reentrant_buffer->_protoent_ptr)) == 0 ? PL_reentrant_buffer->_protoent_ptr : ((PL_reentrant_retint == ERANGE) ? (struct protoent *) Perl_reentrant_retry("getprotobynumber", a) : 0))
 #      endif
@@ -1329,10 +1301,6 @@ typedef struct {
 #  ifdef HAS_GETPROTOENT_R
 #    if defined(PERL_REENTR_API) && (PERL_REENTR_API+0 == 1)
 #      undef getprotoent
-#      undef GETPROTOENT_LOCK
-#      define GETPROTOENT_LOCK  LOCALE_READ_LOCK
-#      undef GETPROTOENT_UNLOCK
-#      define GETPROTOENT_UNLOCK  LOCALE_READ_UNLOCK
 #      if !defined(getprotoent) && GETPROTOENT_R_PROTO == REENTRANT_PROTO_I_SBWR
 #        define getprotoent() ((PL_reentrant_retint = getprotoent_r(&PL_reentrant_buffer->_protoent_struct, PL_reentrant_buffer->_protoent_buffer, PL_reentrant_buffer->_protoent_size, &PL_reentrant_buffer->_protoent_ptr)) == 0 ? PL_reentrant_buffer->_protoent_ptr : ((PL_reentrant_retint == ERANGE) ? (struct protoent *) Perl_reentrant_retry("getprotoent") : 0))
 #      endif
@@ -1383,10 +1351,6 @@ typedef struct {
 #  ifdef HAS_GETPWNAM_R
 #    if defined(PERL_REENTR_API) && (PERL_REENTR_API+0 == 1)
 #      undef getpwnam
-#      undef GETPWNAM_LOCK
-#      define GETPWNAM_LOCK  LOCALE_READ_LOCK
-#      undef GETPWNAM_UNLOCK
-#      define GETPWNAM_UNLOCK  LOCALE_READ_UNLOCK
 #      if !defined(getpwnam) && GETPWNAM_R_PROTO == REENTRANT_PROTO_I_CSBWR
 #        define getpwnam(a) ((PL_reentrant_retint = getpwnam_r(a, &PL_reentrant_buffer->_pwent_struct, PL_reentrant_buffer->_pwent_buffer, PL_reentrant_buffer->_pwent_size, &PL_reentrant_buffer->_pwent_ptr)) == 0 ? PL_reentrant_buffer->_pwent_ptr : ((PL_reentrant_retint == ERANGE) ? (struct passwd *) Perl_reentrant_retry("getpwnam", a) : 0))
 #      endif
@@ -1409,10 +1373,6 @@ typedef struct {
 #  ifdef HAS_GETPWUID_R
 #    if defined(PERL_REENTR_API) && (PERL_REENTR_API+0 == 1)
 #      undef getpwuid
-#      undef GETPWUID_LOCK
-#      define GETPWUID_LOCK  LOCALE_READ_LOCK
-#      undef GETPWUID_UNLOCK
-#      define GETPWUID_UNLOCK  LOCALE_READ_UNLOCK
 #      if !defined(getpwuid) && GETPWUID_R_PROTO == REENTRANT_PROTO_I_TSBWR
 #        define getpwuid(a) ((PL_reentrant_retint = getpwuid_r(a, &PL_reentrant_buffer->_pwent_struct, PL_reentrant_buffer->_pwent_buffer, PL_reentrant_buffer->_pwent_size, &PL_reentrant_buffer->_pwent_ptr)) == 0 ? PL_reentrant_buffer->_pwent_ptr : ((PL_reentrant_retint == ERANGE) ? (struct passwd *) Perl_reentrant_retry("getpwuid", a) : 0))
 #      endif
@@ -1435,10 +1395,6 @@ typedef struct {
 #  ifdef HAS_GETSERVBYNAME_R
 #    if defined(PERL_REENTR_API) && (PERL_REENTR_API+0 == 1)
 #      undef getservbyname
-#      undef GETSERVBYNAME_LOCK
-#      define GETSERVBYNAME_LOCK  LOCALE_READ_LOCK
-#      undef GETSERVBYNAME_UNLOCK
-#      define GETSERVBYNAME_UNLOCK  LOCALE_READ_UNLOCK
 #      if !defined(getservbyname) && GETSERVBYNAME_R_PROTO == REENTRANT_PROTO_I_CCSBWR
 #        define getservbyname(a, b) ((PL_reentrant_retint = getservbyname_r(a, b, &PL_reentrant_buffer->_servent_struct, PL_reentrant_buffer->_servent_buffer, PL_reentrant_buffer->_servent_size, &PL_reentrant_buffer->_servent_ptr)) == 0 ? PL_reentrant_buffer->_servent_ptr : ((PL_reentrant_retint == ERANGE) ? (struct servent *) Perl_reentrant_retry("getservbyname", a, b) : 0))
 #      endif
@@ -1458,10 +1414,6 @@ typedef struct {
 #  ifdef HAS_GETSERVBYPORT_R
 #    if defined(PERL_REENTR_API) && (PERL_REENTR_API+0 == 1)
 #      undef getservbyport
-#      undef GETSERVBYPORT_LOCK
-#      define GETSERVBYPORT_LOCK  LOCALE_READ_LOCK
-#      undef GETSERVBYPORT_UNLOCK
-#      define GETSERVBYPORT_UNLOCK  LOCALE_READ_UNLOCK
 #      if !defined(getservbyport) && GETSERVBYPORT_R_PROTO == REENTRANT_PROTO_I_ICSBWR
 #        define getservbyport(a, b) ((PL_reentrant_retint = getservbyport_r(a, b, &PL_reentrant_buffer->_servent_struct, PL_reentrant_buffer->_servent_buffer, PL_reentrant_buffer->_servent_size, &PL_reentrant_buffer->_servent_ptr)) == 0 ? PL_reentrant_buffer->_servent_ptr : ((PL_reentrant_retint == ERANGE) ? (struct servent *) Perl_reentrant_retry("getservbyport", a, b) : 0))
 #      endif
@@ -1481,10 +1433,6 @@ typedef struct {
 #  ifdef HAS_GETSERVENT_R
 #    if defined(PERL_REENTR_API) && (PERL_REENTR_API+0 == 1)
 #      undef getservent
-#      undef GETSERVENT_LOCK
-#      define GETSERVENT_LOCK  LOCALE_READ_LOCK
-#      undef GETSERVENT_UNLOCK
-#      define GETSERVENT_UNLOCK  LOCALE_READ_UNLOCK
 #      if !defined(getservent) && GETSERVENT_R_PROTO == REENTRANT_PROTO_I_SBWR
 #        define getservent() ((PL_reentrant_retint = getservent_r(&PL_reentrant_buffer->_servent_struct, PL_reentrant_buffer->_servent_buffer, PL_reentrant_buffer->_servent_size, &PL_reentrant_buffer->_servent_ptr)) == 0 ? PL_reentrant_buffer->_servent_ptr : ((PL_reentrant_retint == ERANGE) ? (struct servent *) Perl_reentrant_retry("getservent") : 0))
 #      endif
@@ -1507,10 +1455,6 @@ typedef struct {
 #  ifdef HAS_GETSPNAM_R
 #    if defined(PERL_REENTR_API) && (PERL_REENTR_API+0 == 1)
 #      undef getspnam
-#      undef GETSPNAM_LOCK
-#      define GETSPNAM_LOCK  LOCALE_READ_LOCK
-#      undef GETSPNAM_UNLOCK
-#      define GETSPNAM_UNLOCK  LOCALE_READ_UNLOCK
 #      if !defined(getspnam) && GETSPNAM_R_PROTO == REENTRANT_PROTO_I_CSBWR
 #        define getspnam(a) ((PL_reentrant_retint = getspnam_r(a, &PL_reentrant_buffer->_spent_struct, PL_reentrant_buffer->_spent_buffer, PL_reentrant_buffer->_spent_size, &PL_reentrant_buffer->_spent_ptr)) == 0 ? PL_reentrant_buffer->_spent_ptr : ((PL_reentrant_retint == ERANGE) ? (struct spwd *) Perl_reentrant_retry("getspnam", a) : 0))
 #      endif
@@ -1527,10 +1471,6 @@ typedef struct {
 #  ifdef HAS_GMTIME_R
 #    if defined(PERL_REENTR_API) && (PERL_REENTR_API+0 == 1)
 #      undef gmtime
-#      undef GMTIME_LOCK
-#      define GMTIME_LOCK  ENVr_LOCALEr_LOCK
-#      undef GMTIME_UNLOCK
-#      define GMTIME_UNLOCK  ENVr_LOCALEr_UNLOCK
 #      if !defined(gmtime) && GMTIME_R_PROTO == REENTRANT_PROTO_S_TS
 #        define gmtime(a) (gmtime_r(a, &PL_reentrant_buffer->_gmtime_struct) ? &PL_reentrant_buffer->_gmtime_struct : 0)
 #      endif
