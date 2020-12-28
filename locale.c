@@ -709,13 +709,13 @@ S_do_querylocale(const unsigned int index)
     DEBUG_Lv(PerlIO_printf(Perl_debug_log, "%s:%d: do_querylocale %p\n",
                                            __FILE__, __LINE__, cur_obj));
     if (cur_obj == LC_GLOBAL_LOCALE) {
-        char * retval;
+        const char * retval;
 
         /* We do not try to emulate thread safety for any threads converted to
          * the global locale, for reasons outlined at the beginning of the
          * file.  We do, however, try to prevent races */
 
-        LOCALE_BASE_LOCK_;
+        LOCALE_BASE_LOCK_(0);
         retval = save_to_buffer(my_setlocale(category, NULL),
                                 &PL_setlocale_buf, &PL_setlocale_bufsize, 0);
         LOCALE_BASE_UNLOCK_;
@@ -1196,6 +1196,7 @@ S_emulate_setlocale(const unsigned int index,
      * them). */
 
 #    ifdef HAS_GLIBC_LC_MESSAGES_BUG
+#if 0
 #      include <libintl.h>
 
     /* Invalidate glibc cache of loaded translations, see [perl #134264] */
@@ -1205,6 +1206,7 @@ S_emulate_setlocale(const unsigned int index,
         textdomain(textdomain(NULL));
     }
 
+#    endif
 #    endif
 #    ifdef HAS_QUERYLOCALE
 
@@ -1236,8 +1238,6 @@ S_emulate_setlocale(const unsigned int index,
         if (recalc_LC_ALL) { /* And recalculate LC_ALL */
             calculate_LC_ALL(PL_curlocales);
         }
-
-        FIX_GLIBC_LC_MESSAGES_BUG(index);
     }
 
 #    endif

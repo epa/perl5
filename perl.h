@@ -6606,10 +6606,10 @@ the plain locale pragma without a parameter (S<C<use locale>>) is in effect.
 
 /* Locale/thread synchronization macros. */
 #if ! defined(USE_LOCALE) || ! defined(USE_ITHREADS)
-#  define LOCALE_BASE_LOCK_     NOOP
-#  define LOCALE_BASE_UNLOCK_   NOOP
-#  define LOCALE_LOCK_          NOOP
-#  define LOCALE_UNLOCK_        NOOP
+#  define LOCALE_BASE_LOCK_(cond)   NOOP
+#  define LOCALE_BASE_UNLOCK_       NOOP
+#  define LOCALE_LOCK_              NOOP
+#  define LOCALE_UNLOCK_            NOOP
 #  define LOCALE_INIT
 #  define LOCALE_TERM
 
@@ -6835,7 +6835,7 @@ the plain locale pragma without a parameter (S<C<use locale>>) is in effect.
        * get changed to whatever the thread's should be, so it has to be an
        * exclusive lock.  By defining it here with this name, we can, for the
        * most part, hide this detail from the rest of the code */
-#    define LOCALE_READ_LOCK    LOCALE_LOCK_
+#    define LOCALE_READ_LOCK    LOCALE_LOCK_(0)
 #    define LOCALE_READ_UNLOCK  LOCALE_UNLOCK_
 
 
