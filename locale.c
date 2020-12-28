@@ -3422,14 +3422,19 @@ Perl_init_i18nl10n(pTHX_ int printwarn)
 
 #  endif
 
-#  if defined(USE_POSIX_2008_LOCALE) && ! defined(HAS_QUERYLOCALE)
-
-    /* Initialize our records.  If we have POSIX 2008, we have LC_ALL */
-
-#  endif
+#  ifdef LC_ALL
 
     do_void_setlocale_c(LC_ALL, my_setlocale(LC_ALL, NULL));
 
+#  else
+
+    for (i = 0; i <  NOMINAL_LC_ALL_INDEX; i++) {
+        int category = categories[i];
+        do_void_setlocale_r(category,
+                       my_setlocale(category, NULL));
+    }
+
+#  endif
 #  ifdef LOCALE_ENVIRON_REQUIRED
 
     /*
