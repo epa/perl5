@@ -4294,11 +4294,11 @@ STATIC const char *	S_calculate_LC_ALL(pTHX_ const char ** individ_locales);
 	assert(individ_locales)
 STATIC const char *	S_find_locale_from_environment(pTHX_ const unsigned int index);
 #define PERL_ARGS_ASSERT_FIND_LOCALE_FROM_ENVIRONMENT
-STATIC const char *	S_handle_aggregated_LC_ALL_locale(pTHX_ const char * locale);
-#define PERL_ARGS_ASSERT_HANDLE_AGGREGATED_LC_ALL_LOCALE	\
-	assert(locale)
 STATIC const char *	S_query_PL_curlocales(const unsigned int index);
 #define PERL_ARGS_ASSERT_QUERY_PL_CURLOCALES
+STATIC const char *	S_setlocale_from_aggregate_LC_ALL(pTHX_ const char * locale);
+#define PERL_ARGS_ASSERT_SETLOCALE_FROM_AGGREGATE_LC_ALL	\
+	assert(locale)
 #      endif
 #    endif
 #  endif
@@ -5172,7 +5172,8 @@ STATIC const char*	S_switch_category_locale_to_template(pTHX_ const int switch_c
 STATIC const char*	S_do_querylocale(const unsigned int index);
 #define PERL_ARGS_ASSERT_DO_QUERYLOCALE
 STATIC const char*	S_emulate_setlocale(const unsigned int index, const char* locale, const bool recalc_LC_ALL);
-#define PERL_ARGS_ASSERT_EMULATE_SETLOCALE
+#define PERL_ARGS_ASSERT_EMULATE_SETLOCALE	\
+	assert(locale)
 #    endif
 #    if defined(WIN32)
 STATIC char*	S_win32_setlocale(pTHX_ int category, const char* locale);

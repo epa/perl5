@@ -3232,13 +3232,13 @@ S	|void	|new_numeric	|NULLOK const char* newnum
 S	|void	|new_LC_ALL	|NULLOK const char* newnum
 #    ifdef USE_POSIX_2008_LOCALE
 ST	|const char*|emulate_setlocale|const unsigned int index		\
-				    |NULLOK const char* locale		\
+				    |NN const char* locale		\
 				    |const bool recalc_LC_ALL
 ST	|const char*|do_querylocale |const unsigned int index
 #      ifndef HAS_QUERY_LOCALE
 ST	|const char *|query_PL_curlocales|const unsigned int index
 S	|const char *|calculate_LC_ALL|NN const char ** individ_locales
-S	|const char *|handle_aggregated_LC_ALL_locale|NN const char * locale
+S	|const char *|setlocale_from_aggregate_LC_ALL|NN const char * locale
 S	|const char *|find_locale_from_environment|const unsigned int index
 #      endif
 #    endif
