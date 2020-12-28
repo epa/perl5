@@ -1236,7 +1236,8 @@ S_emulate_setlocale(const unsigned int index,
         PL_curlocales[index] = savepv(locale);
 
         if (recalc_LC_ALL) { /* And recalculate LC_ALL */
-            calculate_LC_ALL(PL_curlocales);
+            Safefree(PL_curlocales[LC_ALL_INDEX_]);
+            PL_curlocales[LC_ALL_INDEX_] = savepv(calculate_LC_ALL(PL_curlocales));
         }
     }
 
