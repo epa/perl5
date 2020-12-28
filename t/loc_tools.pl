@@ -229,7 +229,7 @@ sub locales_enabled(;$) {
     # Don't test locales where they aren't safe.  On systems with unsafe
     # threads, for the purposes of testing, we consider the main thread safe,
     # and all other threads unsafe.
-    if ($Config{ccflags} =~ /\bD?NO_THREAD_SAFE_LOCALE_EMULATION\b/) {
+    if (0 && $Config{ccflags} =~ /\bD?NO_THREAD_SAFE_LOCALE_EMULATION\b/) {
         require threads;
         return 0 if threads->tid() != 0;
     }

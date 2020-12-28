@@ -472,6 +472,8 @@ S_less_dangerous_setlocale(const int cat, const char * locale)
 STATIC void
 S_less_dangerous_void_setlocale(const int cat, const char * locale)
 {
+    dTHX;
+
     SETLOCALE_LOCK;
     my_setlocale(cat, locale);
     SETLOCALE_UNLOCK;
@@ -484,6 +486,7 @@ STATIC bool
 S_less_dangerous_bool_setlocale(const int cat, const char * locale)
 {
     bool retval;
+    dTHX;
 
     SETLOCALE_LOCK;
     retval = cBOOL(my_setlocale(cat, locale));

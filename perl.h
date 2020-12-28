@@ -6758,7 +6758,8 @@ the plain locale pragma without a parameter (S<C<use locale>>) is in effect.
 
      /* The rest of the categories can be defined in terms of this base macro.
       * */
-#    define LC_foo_LOCK_(cat)                                               \
+#    ifdef USE_THREAD_SAFE_LOCALE_EMULATION
+#      define LC_foo_LOCK_(cat)                                             \
         STMT_START {                                                        \
             const char * actual;                                            \
             const char * wanted;                                            \
@@ -6772,7 +6773,11 @@ the plain locale pragma without a parameter (S<C<use locale>>) is in effect.
                 Perl_setlocale(LC_##cat, wanted);                     \
             }                                                               \
         } STMT_END
-#    define LC_foo_UNLOCK_(cat)   LOCALE_UNLOCK_
+#      define LC_foo_UNLOCK_(cat)   LOCALE_UNLOCK_
+#    else
+#      define LC_foo_LOCK_(cat)     NOOP
+#      define LC_foo_UNLOCK_(cat)   NOOP
+#    endif
 
 #    ifdef USE_LOCALE_COLLATE
 #      define LC_COLLATE_LOCK    LC_foo_LOCK_(COLLATE)
