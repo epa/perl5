@@ -440,8 +440,6 @@ S_category_name(const int category)
 #  define do_querylocale_r(cat)             my_setlocale(cat, NULL)
 #  define do_querylocale_i(i)               my_setlocale(categories[i], NULL)
 
-#  define FIX_GLIBC_LC_MESSAGES_BUG(i)
-
 #elif ! defined(USE_POSIX_2008_LOCALE)                   \
    && ! defined(USE_THREAD_SAFE_LOCALE_EMULATION)
 
@@ -624,20 +622,8 @@ S_do_setlocale_i(pTHX_ const unsigned int cat_index, const char * locale,
 #    define do_querylocale_r(cat)                                           \
                            do_querylocale_i(get_category_index(cat, NULL))
 
-#    if ! defined(__GLIBC__) || ! defined(USE_LOCALE_MESSAGES)
-
-#      define FIX_GLIBC_LC_MESSAGES_BUG(i)
-
-#    else /* Invalidate glibc cache of loaded translations, see [perl #134264] */
-
-#      include <libintl.h>
-#      define FIX_GLIBC_LC_MESSAGES_BUG(i)                                  \
-        STMT_START {                                                        \
-            if ((i) == LC_MESSAGES_INDEX_) {                                \
-                textdomain(textdomain(NULL));                               \
-            }                                                               \
-        } STMT_END
-
+#    if defined(__GLIBC__) && defined(USE_LOCALE_MESSAGES)
+#      define HAS_GLIBC_LC_MESSAGES_BUG
 #    endif
 
 /* A fourth array, parallel to the ones above to map from category to its
@@ -1209,6 +1195,17 @@ S_emulate_setlocale(const unsigned int index,
     /* We are done, except for updating our records (if the system doesn't keep
      * them). */
 
+#    ifdef HAS_GLIBC_LC_MESSAGES_BUG
+#      include <libintl.h>
+
+    /* Invalidate glibc cache of loaded translations, see [perl #134264] */
+    if (  (index == LC_MESSAGES_INDEX_ || index == LC_ALL_INDEX_)
+        && strNE(PL_curlocales[index], locale))
+    {
+        textdomain(textdomain(NULL));
+    }
+
+#    endif
 #    ifdef HAS_QUERYLOCALE
 
     return querylocale(mask, new_obj);
@@ -1229,8 +1226,6 @@ S_emulate_setlocale(const unsigned int index,
             Safefree(PL_curlocales[i]);
             PL_curlocales[i] = savepv(locale);
         }
-
-        FIX_GLIBC_LC_MESSAGES_BUG(LC_MESSAGES_INDEX_);
     }
     else {
 
