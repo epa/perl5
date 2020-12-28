@@ -6745,16 +6745,15 @@ the plain locale pragma without a parameter (S<C<use locale>>) is in effect.
     * Clang improperly gives warnings for this, if not silenced:
     * https://clang.llvm.org/docs/ThreadSafetyAnalysis.html#conditional-locks
     */
-#    define LOCALE_LOCK_(cond_to_panic_if_already_locked)                   \
-                         LOCALE_BASE_LOCK_(cond_to_panic_if_already_locked)
+#    define LOCALE_LOCK_    LOCALE_BASE_LOCK_(0)
 #    define LOCALE_UNLOCK_  LOCALE_BASE_UNLOCK_
 #  else
-#    define LOCALE_LOCK_(cond)  NOOP
-#    define LOCALE_UNLOCK_      NOOP
+#    define LOCALE_LOCK_    NOOP
+#    define LOCALE_UNLOCK_  NOOP
 #  endif
 #  if ! defined(USE_THREAD_SAFE_LOCALE)
 #    define LC_NUMERIC_LOCK(cond_to_panic_if_already_locked)                \
-                            LOCALE_LOCK_(cond_to_panic_if_already_locked)
+                        LOCALE_BASE_LOCK_(cond_to_panic_if_already_locked)
 #    define LC_NUMERIC_UNLOCK  LOCALE_UNLOCK_
 
      /* The rest of the categories can be defined in terms of this base macro.
@@ -6765,7 +6764,7 @@ the plain locale pragma without a parameter (S<C<use locale>>) is in effect.
             const char * wanted;                                            \
             dTHX;                                                           \
                                                                             \
-            LOCALE_LOCK_(0);                                                \
+            LOCALE_LOCK_;                                                \
             actual = setlocale(LC_##cat, NULL);                             \
             wanted = PL_curlocales[LC_##cat##_INDEX_];          \
             DEBUG_Lv(PerlIO_printf(Perl_debug_log, "%s: %d: actual=%s, wanted=%s\n",  __FILE__,  __LINE__, actual, wanted)); \
@@ -6793,10 +6792,10 @@ the plain locale pragma without a parameter (S<C<use locale>>) is in effect.
 #    endif
 
      /* Currently, we just pretend there is a readers lock */
-#    define LOCALE_READ_LOCK    LOCALE_LOCK_(0)
+#    define LOCALE_READ_LOCK    LOCALE_LOCK_
 #    define LOCALE_READ_UNLOCK  LOCALE_UNLOCK_
 
-#    define SETLOCALE_LOCK      LOCALE_LOCK_(0)
+#    define SETLOCALE_LOCK      LOCALE_LOCK_
 #    define SETLOCALE_UNLOCK    LOCALE_UNLOCK_
 #  endif    /* ! USE_THREAD_SAFE_LOCALE) */
 
@@ -6808,24 +6807,24 @@ the plain locale pragma without a parameter (S<C<use locale>>) is in effect.
 #  if defined(HAS_LOCALECONV) && (  ! defined(HAS_POSIX_2008_LOCALE)        \
                                  || ! defined(HAS_LOCALECONV_L)             \
                                  ||   defined(TS_W32_BROKEN_LOCALECONV))
-#    define LOCALECONV_LOCK   LOCALE_LOCK_(0)
+#    define LOCALECONV_LOCK   LOCALE_LOCK_
 #    define LOCALECONV_UNLOCK LOCALE_UNLOCK_
 #  endif
 #  if defined(HAS_NL_LANGINFO) && (   ! defined(HAS_THREAD_SAFE_NL_LANGINFO_L) \
                                    || ! defined(HAS_POSIX_2008_LOCALE))
-#    define NL_LANGINFO_LOCK   LOCALE_LOCK_(0)
+#    define NL_LANGINFO_LOCK   LOCALE_LOCK_
 #    define NL_LANGINFO_UNLOCK LOCALE_UNLOCK_
 #  endif
 #  if defined(HAS_MBLEN) && ! defined(HAS_MBRLEN)
-#    define MBLEN_LOCK   LOCALE_LOCK_(0)
+#    define MBLEN_LOCK   LOCALE_LOCK_
 #    define MBLEN_UNLOCK LOCALE_UNLOCK_
 #  endif
 #  if defined(HAS_MBTOWC) && ! defined(HAS_MBRTOWC)
-#    define MBTOWC_LOCK   LOCALE_LOCK_(0)
+#    define MBTOWC_LOCK   LOCALE_LOCK_
 #    define MBTOWC_UNLOCK LOCALE_UNLOCK_
 #  endif
 #  if defined(HAS_WCTOMB) && ! defined(HAS_WCRTOMB)
-#    define WCTOMB_LOCK   LOCALE_LOCK_(0)
+#    define WCTOMB_LOCK   LOCALE_LOCK_
 #    define WCTOMB_UNLOCK LOCALE_UNLOCK_
 #  endif
 #endif
@@ -6835,7 +6834,7 @@ the plain locale pragma without a parameter (S<C<use locale>>) is in effect.
        * get changed to whatever the thread's should be, so it has to be an
        * exclusive lock.  By defining it here with this name, we can, for the
        * most part, hide this detail from the rest of the code */
-#    define LOCALE_READ_LOCK    LOCALE_LOCK_(0)
+#    define LOCALE_READ_LOCK    LOCALE_LOCK_
 #    define LOCALE_READ_UNLOCK  LOCALE_UNLOCK_
 
 
