@@ -2177,7 +2177,7 @@ localeconv()
 
         lcbuf = localeconv_l(cur);
 #  else
-        LOCALECONV_LOCK;    /* Prevent interference with other threads using
+        LC_MONETARY_LOCK;    /* Prevent interference with other threads using
                                localeconv() */
 #    ifdef TS_W32_BROKEN_LOCALECONV
         /* This is a workaround for a Windows bug prior to VS 15, in which
@@ -2263,7 +2263,7 @@ localeconv()
         Safefree(save_global);
         Safefree(save_thread);
 #    endif
-        LOCALECONV_UNLOCK;
+        LC_MONETARY_UNLOCK;
 #  endif
         RESTORE_LC_NUMERIC();
 #endif  /* HAS_LOCALECONV */
