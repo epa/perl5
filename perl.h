@@ -7258,6 +7258,98 @@ cannot have changed since the precalculation.
                                  } STMT_END
 #endif
 
+/* These time-related functions all requre that the environment and locale
+ * don't change while they are executing.  tzset() writes global variables, so
+ * always needs to have write locking.  ctime, localtime, mktime, and strftime
+ * effectively call it, so they too need exclusive access.  The rest need to
+ * have exclusive locking as well so that they can copy the contents of the
+ * returned static buffer before releasing the lock.  That leaves asctime and
+ * gmtime.  There may be reentrant versions of these available on the platform
+ * which don't require write locking.  If that is so, reentr.h will redefine
+ * the affected defines to not require exclusive access */
+#ifndef ASCTIME_LOCK
+#  define ASCTIME_LOCK     gwENVr_LOCALEr_LOCK
+#  define ASCTIME_UNLOCK   gwENVr_LOCALEr_UNLOCK
+#endif
+#define CTIME_LOCK         gwENVr_LOCALEr_LOCK
+#define CTIME_UNLOCK       gwENVr_LOCALEr_UNLOCK
+#ifndef GETHOSTBYADDR_LOCK
+#  define GETHOSTBYADDR_LOCK      gwENVr_LOCALEr_LOCK
+#  define GETHOSTBYADDR_UNLOCK    gwENVr_LOCALEr_UNLOCK
+#endif
+#ifndef GMTIME_LOCK
+#  define GMTIME_LOCK      gwENVr_LOCALEr_LOCK
+#  define GMTIME_UNLOCK    gwENVr_LOCALEr_UNLOCK
+#endif
+#define LOCALTIME_LOCK     gwENVr_LOCALEr_LOCK
+#define LOCALTIME_UNLOCK   gwENVr_LOCALEr_UNLOCK
+#define MKTIME_LOCK        gwENVr_LOCALEr_LOCK
+#define MKTIME_UNLOCK      gwENVr_LOCALEr_UNLOCK
+
+#define STRFMON_LOCK       LC_MONETARY_LOCK
+#define STRFMON_UNLOCK     LC_MONETARY_UNLOCK
+#define STRFTIME_LOCK      STMT_START { LC_TIME_LOCK; ENV_READ_LOCK; } STMT_END
+/* But tzset */
+#define STRFTIME_UNLOCK    STMT_START { ENV_READ_UNLOCK; LC_TIME_UNLOCK; } STMT_END
+#define TZSET_LOCK         gwENVr_LOCALEr_LOCK
+#define TZSET_UNLOCK       gwENVr_LOCALEr_UNLOCK
+
+/* Similiarly, these functions need a constant environment and/or locale.  And
+ * may have a buffer that is shared with another thread executing the same or a
+ * related call.  A mutex could be created for each class, but this shares the
+ * ENV mutex with everything, as none probably gets called all that much that
+ * performance would suffer by a thread being locked out by another thread that
+ * could have used a different mutex.  Again, reentr.h can redefine these to be
+ * read locks if allowable. */
+#ifndef GETHOSTBYNAME_LOCK
+#  define GETHOSTBYNAME_LOCK      gwENVr_LOCALEr_LOCK
+#  define GETHOSTBYNAME_UNLOCK    gwENVr_LOCALEr_UNLOCK
+#endif
+#ifndef GETNETBYADDR_LOCK
+#  define GETNETBYADDR_LOCK       gwENVr_LOCALEr_LOCK
+#  define GETNETBYADDR_UNLOCK     gwENVr_LOCALEr_UNLOCK
+#endif
+#ifndef GETNETBYNAME_LOCK
+#  define GETNETBYNAME_LOCK       gwENVr_LOCALEr_LOCK
+#  define GETNETBYNAME_UNLOCK     gwENVr_LOCALEr_UNLOCK
+#endif
+#ifndef GETPROTOBYNAME_LOCK
+#  define GETPROTOBYNAME_LOCK     gwENVr_LOCALEr_LOCK
+#  define GETPROTOBYNAME_UNLOCK   gwENVr_LOCALEr_UNLOCK
+#endif
+#ifndef GETPROTOBYNUMBER_LOCK
+#  define GETPROTOBYNUMBER_LOCK   gwENVr_LOCALEr_LOCK
+#  define GETPROTOBYNUMBER_UNLOCK gwENVr_LOCALEr_UNLOCK
+#endif
+#ifndef GETPROTOENT_LOCK
+#  define GETPROTOENT_LOCK        gwENVr_LOCALEr_LOCK
+#  define GETPROTOENT_UNLOCK      gwENVr_LOCALEr_UNLOCK
+#endif
+#ifndef GETPWNAM_LOCK
+#  define GETPWNAM_LOCK           gwENVr_LOCALEr_LOCK
+#  define GETPWNAM_UNLOCK         gwENVr_LOCALEr_UNLOCK
+#endif
+#ifndef GETPWUID_LOCK
+#  define GETPWUID_LOCK           gwENVr_LOCALEr_LOCK
+#  define GETPWUID_UNLOCK         gwENVr_LOCALEr_UNLOCK
+#endif
+#ifndef GETSERVBYNAME_LOCK
+#  define GETSERVBYNAME_LOCK      gwENVr_LOCALEr_LOCK
+#  define GETSERVBYNAME_UNLOCK    gwENVr_LOCALEr_UNLOCK
+#endif
+#ifndef GETSERVBYPORT_LOCK
+#  define GETSERVBYPORT_LOCK      gwENVr_LOCALEr_LOCK
+#  define GETSERVBYPORT_UNLOCK    gwENVr_LOCALEr_UNLOCK
+#endif
+#ifndef GETSERVENT_LOCK
+#  define GETSERVENT_LOCK         gwENVr_LOCALEr_LOCK
+#  define GETSERVENT_UNLOCK       gwENVr_LOCALEr_LOCK
+#endif
+#ifndef GETSPNAM_LOCK
+#  define GETSPNAM_LOCK    gwENVr_LOCALEr_LOCK
+#  define GETSPNAM_UNLOCK  gwENVr_LOCALEr_UNLOCK
+#endif
+
 #ifndef PERL_NO_INLINE_FUNCTIONS
 /* Static inline funcs that depend on includes and declarations above.
    Some of these reference functions in the perl object files, and some
