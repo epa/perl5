@@ -443,7 +443,57 @@ S_category_name(const int category)
 #elif ! defined(USE_POSIX_2008_LOCALE)                   \
    && ! defined(USE_THREAD_SAFE_LOCALE_EMULATION)
 
-#  error Unimplemented to not have thread-safe emulation
+   /* Here, there are threads, and there is no support for thread-safe
+    * operation.  This is a dangerous situation that somebody had to change the
+    * default Configuration to achieve.  What we can do here is to make sure
+    * there is a per-thread return from setlocale(), and that a mutex protects
+    * it from races */
+STATIC char *
+S_less_dangerous_setlocale(const int cat, const char * locale)
+{
+    char * retval;
+    dTHX;
+
+    SETLOCALE_LOCK;
+    retval = (char *) save_to_buffer(my_setlocale(cat, locale),
+                                &PL_setlocale_buf, &PL_setlocale_bufsize, 0);
+    SETLOCALE_UNLOCK;
+
+    return retval;
+}
+
+#  define do_setlocale_c(cat, locale)       S_less_dangerous_setlocale(cat, locale)
+#  define do_setlocale_r(cat, locale)       do_setlocale_c(cat, locale)
+
+#  define do_querylocale_c(cat)             do_setlocale_c(cat, NULL)
+#  define do_querylocale_r(cat)             do_querylocale_c(cat)
+#  define do_querylocale_i(i)               do_querylocale_c(categories[i])
+
+STATIC void
+S_less_dangerous_void_setlocale(const int cat, const char * locale)
+{
+    SETLOCALE_LOCK;
+    my_setlocale(cat, locale);
+    SETLOCALE_UNLOCK;
+}
+
+#  define do_void_setlocale_c(cat, locale)  S_less_dangerous_void_setlocale(cat, locale)
+#  define do_void_setlocale_r(cat, locale)  do_void_setlocale_c(cat, locale)
+
+STATIC bool
+S_less_dangerous_bool_setlocale(const int cat, const char * locale)
+{
+    bool retval;
+
+    SETLOCALE_LOCK;
+    retval = cBOOL(my_setlocale(cat, locale));
+    SETLOCALE_UNLOCK;
+
+    return retval;
+}
+
+#  define do_bool_setlocale_c(cat, locale)  S_less_dangerous_bool_setlocale(cat, locale)
+#  define do_bool_setlocale_r(cat, locale)  do_bool_setlocale_c(cat, locale)
 
 #else
 
