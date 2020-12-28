@@ -563,7 +563,7 @@ typedef enum { WANT_VOID, WANT_BOOL, WANT_LOCALE } setlocale_returns;
 #    define do_querylocale_r(cat)                                              \
                             do_querylocale_i(S_get_category_index(cat, NULL))
 
-STATIC char *
+STATIC const char *
 S_do_setlocale_i(pTHX_ const unsigned int cat_index, const char * locale,
                        const setlocale_returns ret_type)
 {
