@@ -1095,6 +1095,12 @@ Example usage:
 #      define USE_POSIX_2008_LOCALE
 #    endif
 #  endif
+
+#  if   defined(USE_ITHREADS)                   \
+   && ! defined(USE_THREAD_SAFE_LOCALE)         \
+   && ! defined(NO_THREAD_SAFE_LOCALE_EMULATION)
+#    define USE_THREAD_SAFE_LOCALE_EMULATION
+#  endif
 #endif
 
 /*  Microsoft documentation reads in the change log for VS 2015:
