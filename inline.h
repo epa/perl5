@@ -117,6 +117,8 @@ S_strip_spaces(pTHX_ const char * orig, STRLEN * const len)
 
 /* ------------------------------- handy.h ------------------------------- */
 
+#ifdef USE_LOCALE_CTYPE
+
 PERL_STATIC_INLINE int
 Perl_iswordchar_(int c)
 {
@@ -157,6 +159,8 @@ Perl_call_clib_char_fcn_(int classnum, int character)
     LC_CTYPE_UNLOCK;
     return retval;
 }
+
+#endif
 
 /* ------------------------------- mg.h ------------------------------- */
 

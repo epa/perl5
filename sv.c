@@ -15642,7 +15642,7 @@ perl_clone_using(PerlInterpreter *proto_perl, UV flags,
  ||  defined(USE_THREAD_SAFE_LOCALE_EMULATION)
 
     for (i = 0; i < (int) C_ARRAY_LENGTH(PL_curlocales); i++) {
-        PL_curlocales[i] = savepv("."); /* An illegal value */
+        PL_curlocales[i] = savepv("C"); /* An illegal value */
     }
 
 #endif

@@ -997,24 +997,17 @@ _strftime(fmt, epoch, islocal = 1)
         struct tm mytm;
         size_t len;
 
+        /* This should achieve locking localtime and gmtime as well */
+        STRFTIME_LOCK;
         if(islocal == 1) {
-            LOCALTIME_LOCK;
             mytm = *localtime(&epoch);
         }
         else {
-            GMTIME_LOCK;
             mytm = *gmtime(&epoch);
         }
 
-        STRFTIME_LOCK;
         len = strftime(tmpbuf, TP_BUF_SIZE, fmt, &mytm);
         STRFTIME_UNLOCK;
-        if(islocal == 1) {
-            LOCALTIME_UNLOCK;
-        }
-        else {
-            GMTIME_UNLOCK;
-        }
         /* my_strftime ?? XXX */
         /*
         ** The following is needed to handle to the situation where

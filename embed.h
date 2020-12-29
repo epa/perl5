@@ -76,7 +76,6 @@
 #define bytes_to_utf8(a,b)	Perl_bytes_to_utf8(aTHX_ a,b)
 #define call_argv(a,b,c)	Perl_call_argv(aTHX_ a,b,c)
 #define call_atexit(a,b)	Perl_call_atexit(aTHX_ a,b)
-#define call_clib_char_fcn_	Perl_call_clib_char_fcn_
 #define call_list(a,b)		Perl_call_list(aTHX_ a,b)
 #define call_method(a,b)	Perl_call_method(aTHX_ a,b)
 #define call_pv(a,b)		Perl_call_pv(aTHX_ a,b)
@@ -280,10 +279,7 @@
 #define is_utf8_string_loclen	Perl_is_utf8_string_loclen
 #define is_utf8_string_loclen_flags	Perl_is_utf8_string_loclen_flags
 #define is_utf8_valid_partial_char_flags	Perl_is_utf8_valid_partial_char_flags
-#define isblank_		Perl_isblank_
-#define iscased_		Perl_iscased_
 #define isinfnan		Perl_isinfnan
-#define iswordchar_		Perl_iswordchar_
 #define leave_adjust_stacks(a,b,c,d)	Perl_leave_adjust_stacks(aTHX_ a,b,c,d)
 #define leave_scope(a)		Perl_leave_scope(aTHX_ a)
 #define lex_bufutf8()		Perl_lex_bufutf8(aTHX)
@@ -900,6 +896,12 @@
 #endif
 #if defined(USE_LOCALE_COLLATE)
 #define sv_collxfrm_flags(a,b,c)	Perl_sv_collxfrm_flags(aTHX_ a,b,c)
+#endif
+#if defined(USE_LOCALE_CTYPE)
+#define call_clib_char_fcn_	Perl_call_clib_char_fcn_
+#define isblank_		Perl_isblank_
+#define iscased_		Perl_iscased_
+#define iswordchar_		Perl_iswordchar_
 #endif
 #if defined(USE_PERLIO)
 #define PerlIO_clearerr(a)	Perl_PerlIO_clearerr(aTHX_ a)

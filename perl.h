@@ -4564,9 +4564,11 @@ Gid_t getegid (void);
         dTHX;                                                           \
         if (PERL_GET_INTERP) {                                          \
                                 if (DEBUG_m_TEST) {                     \
+                                    dSAVE_ERRNO;                        \
                                     PL_debug &= ~DEBUG_m_FLAG;          \
                                     a;                                  \
                                     PL_debug |= DEBUG_m_FLAG;           \
+                                    RESTORE_ERRNO;                      \
                                 }                                       \
                               }                                         \
     } STMT_END
@@ -5084,7 +5086,7 @@ EXTCONST char PL_uudmap[256] =
 EXTCONST char PL_bitcount[256] =
 #  ifdef PERL_MICRO
 #    include "ubitcount.h"
-#else
+#else	/* ! DOINIT */
 #    include "bitcount.h"
 #  endif
 ;
@@ -6613,6 +6615,11 @@ the plain locale pragma without a parameter (S<C<use locale>>) is in effect.
 #  define LOCALE_INIT
 #  define LOCALE_TERM
 
+   /* Since no locales or no threads, this combination lock, needs to be
+    * exclusively the ENV portion */
+#  define gwENVr_LOCALEr_LOCK       ENV_LOCK
+#  define gwENVr_LOCALEr_UNLOCK     ENV_UNLOCK
+
 #else   /* Below: Threaded, and locales are supported */
 
     /* A locale mutex is required on all such threaded builds, if only for
@@ -6640,6 +6647,7 @@ the plain locale pragma without a parameter (S<C<use locale>>) is in effect.
             }                                                               \
             CLANG_DIAG_RESTORE                                              \
         } STMT_END
+
 #  define LOCALE_BASE_UNLOCK_                                               \
         STMT_START {                                                        \
             dTHX;                                                           \
@@ -6657,6 +6665,7 @@ the plain locale pragma without a parameter (S<C<use locale>>) is in effect.
                         __FILE__, __LINE__, PL_locale_mutex_depth));        \
             }                                                               \
         } STMT_END
+
 #  define LOCALE_INIT           MUTEX_INIT(&PL_locale_mutex);
 
 #  ifdef USE_POSIX_2008_LOCALE
@@ -6774,121 +6783,81 @@ the plain locale pragma without a parameter (S<C<use locale>>) is in effect.
             }                                                               \
         } STMT_END
 #      define LC_foo_UNLOCK_(cat)   LOCALE_UNLOCK_
-#    else
-#      define LC_foo_LOCK_(cat)     NOOP
-#      define LC_foo_UNLOCK_(cat)   NOOP
+#      define HAS_LOCKING_LC_foo_
 #    endif
 
-#    ifdef USE_LOCALE_COLLATE
-#      define LC_COLLATE_LOCK    LC_foo_LOCK_(COLLATE)
-#      define LC_COLLATE_UNLOCK  LC_foo_UNLOCK_(COLLATE)
-#    endif
-#    ifdef USE_LOCALE_CTYPE
-#      define LC_CTYPE_LOCK    LC_foo_LOCK_(CTYPE)
-#      define LC_CTYPE_UNLOCK  LC_foo_UNLOCK_(CTYPE)
-#    endif
-#    ifdef USE_LOCALE_MONETARY
-#      define LC_MONETARY_LOCK    LC_foo_LOCK_(MONETARY)
-#      define LC_MONETARY_UNLOCK  LC_foo_UNLOCK_(MONETARY)
-#    endif
-#    ifdef USE_LOCALE_TIME
-#      define LC_TIME_LOCK    LC_foo_LOCK_(TIME)
-#      define LC_TIME_UNLOCK  LC_foo_UNLOCK_(TIME)
-#    endif
-
-     /* Currently, we just pretend there is a readers lock */
-#    define LOCALE_READ_LOCK    LOCALE_LOCK_
-#    define LOCALE_READ_UNLOCK  LOCALE_UNLOCK_
-
-#    define SETLOCALE_LOCK      LOCALE_LOCK_
-#    define SETLOCALE_UNLOCK    LOCALE_UNLOCK_
 #  endif    /* ! USE_THREAD_SAFE_LOCALE) */
+#endif
 
    /* The rest of these may need to be locked even if there is a thread safe locale, as they may not be reentrant.  They do not automatically get any reentrant versions substituted for them in reentr.h.  Instead, XS code should do the testing itself or do perl_call of the POSIX 
     Now define some lock functions for individual functions.  Some of these assume reentrancy We do define a different macro for each case; then if we want to have
     * separate mutexes for some of them, the only changes needed are here.
     * Define just the necessary macros.  The compiler should then croak if the
     * #ifdef's in the code are incorrect */
-#  if defined(HAS_LOCALECONV) && (  ! defined(HAS_POSIX_2008_LOCALE)        \
-                                 || ! defined(HAS_LOCALECONV_L)             \
-                                 ||   defined(TS_W32_BROKEN_LOCALECONV))
-#    define LOCALECONV_LOCK   LOCALE_LOCK_
-#    define LOCALECONV_UNLOCK LOCALE_UNLOCK_
-#  endif
-#  if defined(HAS_NL_LANGINFO) && (   ! defined(HAS_THREAD_SAFE_NL_LANGINFO_L) \
-                                   || ! defined(HAS_POSIX_2008_LOCALE))
-#    define NL_LANGINFO_LOCK   LOCALE_LOCK_
-#    define NL_LANGINFO_UNLOCK LOCALE_UNLOCK_
-#  endif
-#  if defined(HAS_MBLEN) && ! defined(HAS_MBRLEN)
-#    define MBLEN_LOCK   LOCALE_LOCK_
-#    define MBLEN_UNLOCK LOCALE_UNLOCK_
-#  endif
-#  if defined(HAS_MBTOWC) && ! defined(HAS_MBRTOWC)
-#    define MBTOWC_LOCK   LOCALE_LOCK_
-#    define MBTOWC_UNLOCK LOCALE_UNLOCK_
-#  endif
-#  if defined(HAS_WCTOMB) && ! defined(HAS_WCRTOMB)
-#    define WCTOMB_LOCK   LOCALE_LOCK_
-#    define WCTOMB_UNLOCK LOCALE_UNLOCK_
-#  endif
-#endif
-
       /* On systems that don't have per-thread locales, even though we don't
        * think we are changing the locale ourselves, behind the scenes it does
        * get changed to whatever the thread's should be, so it has to be an
        * exclusive lock.  By defining it here with this name, we can, for the
        * most part, hide this detail from the rest of the code */
-#    define LOCALE_READ_LOCK    LOCALE_LOCK_
-#    define LOCALE_READ_UNLOCK  LOCALE_UNLOCK_
 
+#define SETLOCALE_LOCK          LOCALE_LOCK_
+#define SETLOCALE_UNLOCK        LOCALE_UNLOCK_
 
-#ifndef LC_NUMERIC_LOCK
-#  define LC_NUMERIC_LOCK(cond)   NOOP
-#  define LC_NUMERIC_UNLOCK       NOOP
+#ifndef LC_foo_LOCK_
+#  define LC_foo_LOCK_(cat)         NOOP
+#  define LC_foo_UNLOCK_(cat)       NOOP
 #endif
-#ifndef LC_COLLATE_LOCK
-#  define LC_COLLATE_LOCK         NOOP
-#  define LC_COLLATE_UNLOCK       NOOP
+#ifdef USE_LOCALE_COLLATE
+#  define LC_COLLATE_LOCK       LC_foo_LOCK_(COLLATE)
+#  define LC_COLLATE_UNLOCK     LC_foo_UNLOCK_(COLLATE)
 #endif
-#ifndef LC_CTYPE_LOCK
-#  define LC_CTYPE_LOCK           NOOP
-#  define LC_CTYPE_UNLOCK         NOOP
+#ifdef USE_LOCALE_CTYPE
+#  define LC_CTYPE_LOCK         LC_foo_LOCK_(CTYPE)
+#  define LC_CTYPE_UNLOCK       LC_foo_UNLOCK_(CTYPE)
 #endif
-#ifndef LC_MONETARY_LOCK
-#  define LC_MONETARY_LOCK        NOOP
-#  define LC_MONETARY_UNLOCK      NOOP
+#ifdef USE_LOCALE_MONETARY
+#  define LC_MONETARY_LOCK      LC_foo_LOCK_(MONETARY)
+#  define LC_MONETARY_UNLOCK    LC_foo_UNLOCK_(MONETARY)
 #endif
-#ifndef LC_TIME_LOCK
-#  define LC_TIME_LOCK            NOOP
-#  define LC_TIME_UNLOCK          NOOP
+#ifdef USE_LOCALE_TIME
+#  define LC_TIME_LOCK          LC_foo_LOCK_(TIME)
+#  define LC_TIME_UNLOCK        LC_foo_UNLOCK_(TIME)
 #endif
-#ifndef LOCALE_READ_LOCK
-#  define LOCALE_READ_LOCK        NOOP
-#  define LOCALE_READ_UNLOCK      NOOP
+#if defined(HAS_MBLEN) && ! defined(HAS_MBRLEN)
+#  define MBLEN_LOCK_           LOCALE_LOCK_
+#  define MBLEN_UNLOCK_         LOCALE_UNLOCK_
+#else
+#  define MBLEN_LOCK_           NOOP
+#  define MBLEN_UNLOCK_         NOOP
 #endif
-#ifndef SETLOCALE_LOCK
-#  define SETLOCALE_LOCK          NOOP
-#  define SETLOCALE_UNLOCK        NOOP
+# if defined(HAS_MBTOWC) && ! defined(HAS_MBRTOWC)
+#   define MBTOWC_LOCK_         LOCALE_LOCK_
+#   define MBTOWC_UNLOCK_       LOCALE_UNLOCK_
+#else
+#  define MBTOWC_LOCK_          NOOP
+#  define MBTOWC_UNLOCK         NOOP
 #endif
-#ifndef MBLEN_LOCK
-#  define MBLEN_LOCK                NOOP
-#  define MBLEN_UNLOCK              NOOP
+#if defined(HAS_NL_LANGINFO) && (   ! defined(HAS_THREAD_SAFE_NL_LANGINFO_L) \
+                                   || ! defined(HAS_POSIX_2008_LOCALE))
+#  define NL_LANGINFO_LOCK_   LOCALE_LOCK_
+#  define NL_LANGINFO_UNLOCK_ LOCALE_UNLOCK_
+#else
+#  define NL_LANGINFO_LOCK_     NOOP
+#  define NL_LANGINFO_UNLOC     NOOP
 #endif
-#ifndef MBTOWC_LOCK
-#  define MBTOWC_LOCK               NOOP
-#  define MBTOWC_UNLOCK             NOOP
-#endif
-#ifndef NL_LANGINFO_LOCK
-#  define NL_LANGINFO_LOCK          NOOP
-#  define NL_LANGINFO_UNLOCK        NOOP
-#endif
-#ifndef WCTOMB_LOCK
-#  define WCTOMB_LOCK               NOOP
-#  define WCTOMB_UNLOCK             NOOP
+#if defined(HAS_WCTOMB) && ! defined(HAS_WCRTOMB)
+#  define WCTOMB_LOCK_          LOCALE_LOCK_
+#  define WCTOMB_UNLOCK_        LOCALE_UNLOCK_
+#else
+#  define WCTOMB_LOCK_          NOOP
+#  define WCTOMB_K_             NOOP
 #endif
 
 #ifdef USE_LOCALE_NUMERIC
+#  ifndef LC_NUMERIC_LOCK
+#    define LC_NUMERIC_LOCK(cond)   NOOP
+#    define LC_NUMERIC_UNLOCK       NOOP
+#  endif
 
 /* These macros are for toggling between the underlying locale (UNDERLYING or
  * LOCAL) and the C locale (STANDARD).  (Actually we don't have to use the C
@@ -7092,6 +7061,7 @@ cannot have changed since the precalculation.
  * only after being sure that this is what is needed */
 #  define SET_NUMERIC_STANDARD()                                            \
 	STMT_START {                                                        \
+            /*assert(PL_locale_mutex_depth > 0);*/                              \
             DEBUG_Lv(PerlIO_printf(Perl_debug_log,                          \
                                "%s: %d: lc_numeric standard=%d\n",          \
                                 __FILE__, __LINE__, PL_numeric_standard));  \
@@ -7103,6 +7073,7 @@ cannot have changed since the precalculation.
 
 #  define SET_NUMERIC_UNDERLYING()                                          \
 	STMT_START {                                                        \
+            /*assert(PL_locale_mutex_depth > 0);*/                              \
             if (_NOT_IN_NUMERIC_UNDERLYING) {                               \
                 Perl_set_numeric_underlying(aTHX);                          \
             }                                                               \
@@ -7222,16 +7193,14 @@ cannot have changed since the precalculation.
  * changing, while allowing for any number of readers.  To avoid deadlock, this
  * is always done in the same order.  These should always be invoked, like all
  * locks really, at such a low level that its just a libc call that is wrapped,
- * so as to prevent recursive calls which could deadlock.  Because
- * LOCALE_READ_LOCK (q.v.) may actually be an exclusive lock, we do it first,
- * to minimize the possibility of deadlock. */
+ * so as to prevent recursive calls which could deadlock. */
 #define ENVr_LOCALEr_LOCK    STMT_START {                           \
-                                LOCALE_READ_LOCK;                   \
+                                LOCALE_LOCK_;                       \
                                 ENV_READ_LOCK;                      \
                              } STMT_END
 #define ENVr_LOCALEr_UNLOCK  STMT_START {                           \
                                 ENV_READ_UNLOCK;                    \
-                                LOCALE_READ_UNLOCK;                 \
+                                LOCALE_UNLOCK_;                     \
                              } STMT_END
 
 /* Some critical sections are like the above, but there is a shared resource
@@ -7248,111 +7217,174 @@ cannot have changed since the precalculation.
  * sure it is an exclusive lock.  On other systems LOCALE_READ_LOCK can be an
  * exclusive lock.  To avoid having two exclusive locks, we use the locale one
  * for the exclusive lock */
-#ifdef USE_THREAD_SAFE_LOCALE
-#  define gwENVr_LOCALEr_LOCK    ENV_LOCK
-#  define gwENVr_LOCALEr_UNLOCK  ENV_UNLOCK
-#else
-#  define gwENVr_LOCALEr_LOCK   STMT_START {                   \
-                                    LOCALE_LOCK_;              \
-                                    ENV_READ_LOCK;             \
+#ifndef gwENVr_LOCALEr_LOCK
+#  ifdef USE_THREAD_SAFE_LOCALE
+#    define gwENVr_LOCALEr_LOCK    ENV_LOCK
+#    define gwENVr_LOCALEr_UNLOCK  ENV_UNLOCK
+#  else
+#    define gwENVr_LOCALEr_LOCK   STMT_START {                    \
+                                    LOCALE_LOCK_;               \
+                                    ENV_READ_LOCK;              \
                                 } STMT_END
-#  define gwENVr_LOCALEr_UNLOCK  STMT_START {                  \
-                                    ENV_READ_UNLOCK;           \
-                                    LOCALE_UNLOCK_;            \
+#    define gwENVr_LOCALEr_UNLOCK  STMT_START {                   \
+                                    ENV_READ_UNLOCK;            \
+                                    LOCALE_UNLOCK_;             \
                                  } STMT_END
+#  endif
 #endif
 
 /* These time-related functions all requre that the environment and locale
- * don't change while they are executing.  tzset() writes global variables, so
+ * don't change while they are executing (at least in glibc; this XXX).  tzset() writes global variables, so
  * always needs to have write locking.  ctime, localtime, mktime, and strftime
  * effectively call it, so they too need exclusive access.  The rest need to
  * have exclusive locking as well so that they can copy the contents of the
  * returned static buffer before releasing the lock.  That leaves asctime and
  * gmtime.  There may be reentrant versions of these available on the platform
- * which don't require write locking.  If that is so, reentr.h will redefine
- * the affected defines to not require exclusive access */
-#ifndef ASCTIME_LOCK
+ * which don't require write locking.
+ */
+
+#ifdef PERL_REENTR_USING_ASCTIME_R
+#  define ASCTIME_LOCK     SETLOCALE_LOCK
+#  define ASCTIME_UNLOCK   SETLOCALE_UNLOCK
+#else
 #  define ASCTIME_LOCK     gwENVr_LOCALEr_LOCK
 #  define ASCTIME_UNLOCK   gwENVr_LOCALEr_UNLOCK
 #endif
+
 #define CTIME_LOCK         gwENVr_LOCALEr_LOCK
 #define CTIME_UNLOCK       gwENVr_LOCALEr_UNLOCK
-#ifndef GETHOSTBYADDR_LOCK
-#  define GETHOSTBYADDR_LOCK      gwENVr_LOCALEr_LOCK
-#  define GETHOSTBYADDR_UNLOCK    gwENVr_LOCALEr_UNLOCK
-#endif
-#ifndef GMTIME_LOCK
+
+#ifdef PERL_REENTR_USING_GMTIME_R
+#  define GMTIME_LOCK      ENVr_LOCALEr_LOCK
+#  define GMTIME_UNLOCK    ENVr_LOCALEr_UNLOCK
+#else
 #  define GMTIME_LOCK      gwENVr_LOCALEr_LOCK
 #  define GMTIME_UNLOCK    gwENVr_LOCALEr_UNLOCK
 #endif
+
 #define LOCALTIME_LOCK     gwENVr_LOCALEr_LOCK
 #define LOCALTIME_UNLOCK   gwENVr_LOCALEr_UNLOCK
 #define MKTIME_LOCK        gwENVr_LOCALEr_LOCK
 #define MKTIME_UNLOCK      gwENVr_LOCALEr_UNLOCK
 
-#define STRFMON_LOCK       LC_MONETARY_LOCK
-#define STRFMON_UNLOCK     LC_MONETARY_UNLOCK
-#define STRFTIME_LOCK      STMT_START { LC_TIME_LOCK; ENV_READ_LOCK; } STMT_END
-/* But tzset */
-#define STRFTIME_UNLOCK    STMT_START { ENV_READ_UNLOCK; LC_TIME_UNLOCK; } STMT_END
-#define TZSET_LOCK         gwENVr_LOCALEr_LOCK
-#define TZSET_UNLOCK       gwENVr_LOCALEr_UNLOCK
+/* This calls tzset() which sets globals */
+#ifdef HAS_LOCKING_LC_foo_
+#  define STRFTIME_LOCK     STMT_START { LC_TIME_LOCK; ENV_READ_LOCK; } STMT_END
+#  define STRFTIME_UNLOCK   STMT_START { ENV_READ_UNLOCK; LC_TIME_UNLOCK; } STMT_END
+#else
+#  define STRFTIME_LOCK     ENV_LOCK
+#  define STRFTIME_UNLOCK   ENV_UNLOCK
+#endif
+#define TZSET_LOCK          gwENVr_LOCALEr_LOCK
+#define TZSET_UNLOCK        gwENVr_LOCALEr_UNLOCK
 
 /* Similiarly, these functions need a constant environment and/or locale.  And
- * may have a buffer that is shared with another thread executing the same or a
- * related call.  A mutex could be created for each class, but this shares the
- * ENV mutex with everything, as none probably gets called all that much that
+ * some have a buffer that is shared with another thread executing the same or
+ * a related call.  A mutex could be created for each class, but for now, share
+ * the ENV mutex with everything, as none probably gets called so much that
  * performance would suffer by a thread being locked out by another thread that
- * could have used a different mutex.  Again, reentr.h can redefine these to be
- * read locks if allowable. */
-#ifndef GETHOSTBYNAME_LOCK
-#  define GETHOSTBYNAME_LOCK      gwENVr_LOCALEr_LOCK
-#  define GETHOSTBYNAME_UNLOCK    gwENVr_LOCALEr_UNLOCK
+ * could have used a different mutex.
+ *
+ * But, create a different macro name just to indicate the ones that don't
+ * actually depend on the environment, but are using its mutex for want of a
+ * better one */
+#define gwLOCALE_r_LOCK             gwENVr_LOCALEr_LOCK
+#define gwLOCALE_r_UNLOCK           gwENVr_LOCALEr_UNLOCK
+
+#ifdef PERL_REENTR_USING_GETHOSTBYADDR_R
+#  define GETHOSTBYADDR_LOCK        ENVr_LOCALEr_LOCK
+#  define GETHOSTBYADDR_UNLOCK      ENVr_LOCALEr_UNLOCK
+#else
+#  define GETHOSTBYADDR_LOCK        gwENVr_LOCALEr_LOCK
+#  define GETHOSTBYADDR_UNLOCK      gwENVr_LOCALEr_UNLOCK
 #endif
-#ifndef GETNETBYADDR_LOCK
-#  define GETNETBYADDR_LOCK       gwENVr_LOCALEr_LOCK
-#  define GETNETBYADDR_UNLOCK     gwENVr_LOCALEr_UNLOCK
+#ifdef PERL_REENTR_USING_GETHOSTBYNAME_R
+#  define GETHOSTBYNAME_LOCK        ENVr_LOCALEr_LOCK
+#  define GETHOSTBYNAME_UNLOCK      ENVr_LOCALEr_UNLOCK
+#else
+#  define GETHOSTBYNAME_LOCK        gwENVr_LOCALEr_LOCK
+#  define GETHOSTBYNAME_UNLOCK      gwENVr_LOCALEr_UNLOCK
 #endif
-#ifndef GETNETBYNAME_LOCK
-#  define GETNETBYNAME_LOCK       gwENVr_LOCALEr_LOCK
-#  define GETNETBYNAME_UNLOCK     gwENVr_LOCALEr_UNLOCK
+#ifdef PERL_REENTR_USING_GETNETBYADDR_R
+#  define GETNETBYADDR_LOCK         SETLOCALE_LOCK
+#  define GETNETBYADDR_UNLOCK       SETLOCALE_UNLOCK
+#else
+#  define GETNETBYADDR_LOCK         gwLOCALEr_LOCK
+#  define GETNETBYADDR_UNLOCK       gwLOCALEr_UNLOCK
 #endif
-#ifndef GETPROTOBYNAME_LOCK
-#  define GETPROTOBYNAME_LOCK     gwENVr_LOCALEr_LOCK
-#  define GETPROTOBYNAME_UNLOCK   gwENVr_LOCALEr_UNLOCK
+#ifdef PERL_REENTR_USING_GETNETBYNAME_R
+#  define GETNETBYNAME_LOCK         SETLOCALE_LOCK
+#  define GETNETBYNAME_UNLOCK       SETLOCALE_UNLOCK
+#else
+#  define GETNETBYNAME_LOCK         gwLOCALEr_LOCK
+#  define GETNETBYNAME_UNLOCK       gwLOCALEr_UNLOCK
 #endif
-#ifndef GETPROTOBYNUMBER_LOCK
-#  define GETPROTOBYNUMBER_LOCK   gwENVr_LOCALEr_LOCK
-#  define GETPROTOBYNUMBER_UNLOCK gwENVr_LOCALEr_UNLOCK
+#ifdef PERL_REENTR_USING_GETPROTOBYNAME_R
+#  define GETPROTOBYNAME_LOCK       SETLOCALE_LOCK
+#  define GETPROTOBYNAME_UNLOCK     SETLOCALE_UNLOCK
+#else
+#  define GETPROTOBYNAME_LOCK       gwLOCALEr_LOCK
+#  define GETPROTOBYNAME_UNLOCK     gwLOCALEr_UNLOCK
 #endif
-#ifndef GETPROTOENT_LOCK
-#  define GETPROTOENT_LOCK        gwENVr_LOCALEr_LOCK
-#  define GETPROTOENT_UNLOCK      gwENVr_LOCALEr_UNLOCK
+#ifdef PERL_REENTR_USING_GETPROTOBYNUMBER_R
+#  define GETPROTOBYNUMBER_LOCK     SETLOCALE_LOCK
+#  define GETPROTOBYNUMBER_UNLOCK   SETLOCALE_UNLOCK
+#else
+#  define GETPROTOBYNUMBER_LOCK     gwLOCALEr_LOCK
+#  define GETPROTOBYNUMBER_UNLOCK   gwLOCALEr_UNLOCK
 #endif
-#ifndef GETPWNAM_LOCK
-#  define GETPWNAM_LOCK           gwENVr_LOCALEr_LOCK
-#  define GETPWNAM_UNLOCK         gwENVr_LOCALEr_UNLOCK
+#ifdef PERL_REENTR_USING_GETPROTOENT_R
+#  define GETPROTOENT_LOCK          SETLOCALE_LOCK
+#  define GETPROTOENT_UNLOCK        SETLOCALE_UNLOCK
+#else
+#  define GETPROTOENT_LOCK          gwLOCALEr_LOCK
+#  define GETPROTOENT_UNLOCK        gwLOCALEr_UNLOCK
 #endif
-#ifndef GETPWUID_LOCK
-#  define GETPWUID_LOCK           gwENVr_LOCALEr_LOCK
-#  define GETPWUID_UNLOCK         gwENVr_LOCALEr_UNLOCK
+#ifdef PERL_REENTR_USING_GETPWNAM_R
+#  define GETPWNAM_LOCK             SETLOCALE_LOCK
+#  define GETPWNAM_UNLOCK           SETLOCALE_UNLOCK
+#else
+#  define GETPWNAM_LOCK             gwLOCALEr_LOCK
+#  define GETPWNAM_UNLOCK           gwLOCALEr_UNLOCK
 #endif
-#ifndef GETSERVBYNAME_LOCK
-#  define GETSERVBYNAME_LOCK      gwENVr_LOCALEr_LOCK
-#  define GETSERVBYNAME_UNLOCK    gwENVr_LOCALEr_UNLOCK
+#ifdef PERL_REENTR_USING_GETPWUID_R
+#  define GETPWUID_LOCK             SETLOCALE_LOCK
+#  define GETPWUID_UNLOCK           SETLOCALE_UNLOCK
+#else
+#  define GETPWUID_LOCK             gwLOCALEr_LOCK
+#  define GETPWUID_UNLOCK           gwLOCALEr_UNLOCK
 #endif
-#ifndef GETSERVBYPORT_LOCK
-#  define GETSERVBYPORT_LOCK      gwENVr_LOCALEr_LOCK
-#  define GETSERVBYPORT_UNLOCK    gwENVr_LOCALEr_UNLOCK
+#ifdef PERL_REENTR_USING_GETSERVBYNAME_R
+#  define GETSERVBYNAME_LOCK        SETLOCALE_LOCK
+#  define GETSERVBYNAME_UNLOCK      SETLOCALE_UNLOCK
+#else
+#  define GETSERVBYNAME_LOCK        gwLOCALEr_LOCK
+#  define GETSERVBYNAME_UNLOCK      gwLOCALEr_UNLOCK
 #endif
-#ifndef GETSERVENT_LOCK
-#  define GETSERVENT_LOCK         gwENVr_LOCALEr_LOCK
-#  define GETSERVENT_UNLOCK       gwENVr_LOCALEr_LOCK
+#ifdef PERL_REENTR_USING_GETSERVBYPORT_R
+#  define GETSERVBYPORT_LOCK        SETLOCALE_LOCK
+#  define GETSERVBYPORT_UNLOCK      SETLOCALE_UNLOCK
+#else
+#  define GETSERVBYPORT_LOCK        gwLOCALEr_LOCK
+#  define GETSERVBYPORT_UNLOCK      gwLOCALEr_UNLOCK
 #endif
-#ifndef GETSPNAM_LOCK
-#  define GETSPNAM_LOCK    gwENVr_LOCALEr_LOCK
-#  define GETSPNAM_UNLOCK  gwENVr_LOCALEr_UNLOCK
+#ifdef PERL_REENTR_USING_GETSERVENT_R
+#  define GETSERVENT_LOCK           SETLOCALE_LOCK
+#  define GETSERVENT_UNLOCK         SETLOCALE_UNLOCK
+#else
+#  define GETSERVENT_LOCK           gwLOCALEr_LOCK
+#  define GETSERVENT_UNLOCK         gwLOCALEr_UNLOCK
 #endif
+#ifdef PERL_REENTR_USING_GETSPNAM_R
+#  define GETSPNAM_LOCK             SETLOCALE_LOCK
+#  define GETSPNAM_UNLOCK           SETLOCALE_UNLOCK
+#else
+#  define GETSPNAM_LOCK             gwLOCALEr_LOCK
+#  define GETSPNAM_UNLOCK           gwLOCALEr_UNLOCK
+#endif
+
+#define STRFMON_LOCK        LC_MONETARY_LOCK
+#define STRFMON_UNLOCK      LC_MONETARY_UNLOCK
 
 #ifndef PERL_NO_INLINE_FUNCTIONS
 /* Static inline funcs that depend on includes and declarations above.
@@ -8114,6 +8146,7 @@ START_EXTERN_C
 
 #ifdef DOINIT
 
+
 /* PL_inf and PL_nan initialization.
  *
  * For inf and nan initialization the ultimate fallback is dividing
@@ -8213,7 +8246,7 @@ INFNAN_NV_U8_DECL PL_nan = { 0.0/0.0 }; /* keep last */
 GCC_DIAG_RESTORE_DECL;
 #  endif
 
-#else
+#else	/* ! DOINIT */
 
 INFNAN_NV_U8_DECL PL_inf;
 INFNAN_NV_U8_DECL PL_nan;

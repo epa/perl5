@@ -2576,6 +2576,7 @@ Perl_my_setenv(pTHX_ const char *nam, const char *val)
 	    const Size_t vlen = strlen(val);
 	    char * const new_env = S_env_alloc(NULL, nlen, vlen, 2, 1);
             my_setenv_format(new_env, nam, nlen, val, vlen);
+            // Why no mutex
             (void)putenv(new_env);
         }
 
@@ -2591,6 +2592,7 @@ Perl_my_setenv(pTHX_ const char *nam, const char *val)
         new_env = S_env_alloc(NULL, nlen, vlen, 2, 1);
         /* all that work just for this */
         my_setenv_format(new_env, nam, nlen, val, vlen);
+        // Why no mutex
         (void)putenv(new_env);
 
 #    endif /* MY_HAS_SETENV */

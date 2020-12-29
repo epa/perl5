@@ -27,20 +27,58 @@
  * any attention to it except within the scope of a 'use locale'.  For most
  * categories, it accomplishes this by just using different operations if it is
  * in such scope than if not.  However, various libc functions called by Perl
- * are affected by the LC_NUMERIC category, so there are macros in perl.h that
+ * are affected by the XXX LC_NUMERIC category, so there are macros in perl.h that
  * are used to toggle between the current locale and the C locale depending on
  * the desired behavior of those functions at the moment.  And, LC_MESSAGES is
  * switched to the C locale for outputting the message unless within the scope
  * of 'use locale'.
  *
- * This code now has multi-thread-safe locale handling on systems that support
- * that.  This is completely transparent to most XS code.  On earlier systems,
- * it would be possible to emulate thread-safe locales, but this likely would
- * involve a lot of locale switching, and would require XS code changes.
- * Macros could be written so that the code wouldn't have to know which type of
- * system is being used.  It's unlikely that we would ever do that, since most
- * modern systems support thread-safe locales, but there was code written to
- * this end, and is retained, #ifdef'd out.
+ * Table-driven code is used for simplicity and clarity, as many operations
+ * differ only in which category is being worked on.  However the system
+ * categories need not be small contiguous integers, so do not lend themselves
+ * to table lookup.  Instead we have created our own equivalent values which
+ * are all small contiguous non-negative integers, and translation functions
+ * between the two sets.  For category 'LC_foo', the name of our index is
+ * LC_foo_INDEX_.  Various parallel tables, indexed by these, are used.
+ *
+ * On unthreaded perls, most operations expand out to just the basic
+ * setlocale() calls.  The same is true on threaded perls on modern Windows
+ * systems where the same API, after set up, is used for thread-safe locale
+ * handling.  On other systems, there is a completely different API, specified
+ * in POSIX 2008, to do thread-safe locales.  On these systems, our
+ * emulate_setlocale() function is used to hide the different API from the
+ * outside.  This makes it completely transparent to most XS code.
+ *
+ * On other threaded-systems, the code here, in conjunction with other code in
+ * the system, emulates thread-safe locales by using mutexes to lock other
+ * threads out, and change the global locale to the desired per-thread value
+ * just before operations that care about it.  All such operations must declare
+ * their need before executing, or it won't work.  All of the Perl core does
+ * this, which makes pure Perl code locale thread-safe.  XS code can be
+ * extended to work by using the macros for the purpose in perl.h.  The need
+ * for mutexes means that in these platforms, much of the code in this file
+ * must be done while in critical sections.
+ *
+ * A huge complicating factor is that the LC_NUMERIC category is normally held
+ * in the C locale, except during those relatively rare times when it needs to
+ * be in the underlying locale.  There is a bunch of code to accomplish this,
+ * and to allow easy switches from one state to the other.
+ *
+ * We could try to emulate safe threads for POSIX 2008 threads that have switched to the
+ * global locale.  But this would be a bunch of work for an uncommon case.  And
+ * the only reason to do that switch would be if there were an alien library
+ * that can't be changed.  But then it would still be unsafe, because it would
+ * need to change to use our macros that make it safe, but it can't change.
+ *
+os390: If setlocale() is called and an application has called pthread_create()
+to create another thread, setlocale() returns a NULL pointer and does not
+change the current locale.  that means we can't change the locale mor strerror
+and the radix sign.  Workaround now done for the first, but I need to figure
+out the 2nd.  I don't see a good solution.  we need the radix both ways, and we
+call system functions that will output it in only one way.  perllocale needs to
+be updated.  Apparently this isn't a problem with querying what locale we are in
+we could just return false for utf8 locales
+-
  */
 
 /* If the environment says to, we can output debugging information during
@@ -2297,6 +2335,7 @@ configurations.
 C<Perl_setlocale> should not be used to change the locale except on systems
 where the predefined variable C<${^SAFE_LOCALES}> is 1.  On some such systems,
 the system C<setlocale()> is ineffective, returning the wrong information, and
+XXX
 failing to actually change the locale.  C<Perl_setlocale>, however works
 properly in all circumstances.
 
@@ -2638,14 +2677,14 @@ S_my_nl_langinfo(const int item, bool toggle)
 
         /* Prevent interference from another thread executing this code
          * section. */
-        NL_LANGINFO_LOCK;
+        NL_LANGINFO_LOCK_;
 
         /* Copy to a per-thread buffer, which is also one that won't be
          * destroyed by a subsequent setlocale(), such as the
          * RESTORE_LC_NUMERIC may do just below. */
         retval = save_to_buffer(nl_langinfo(item),
                                 &PL_langinfo_buf, &PL_langinfo_bufsize, 0);
-        NL_LANGINFO_UNLOCK;
+        NL_LANGINFO_UNLOCK_;
 
         if (toggle) {
             RESTORE_LC_NUMERIC();
@@ -3656,11 +3695,16 @@ Perl_init_i18nl10n(pTHX_ int printwarn)
         if (! setlocale_failure) {
             unsigned int j;
             for (j = 0; j < NOMINAL_LC_ALL_INDEX; j++) {
-                curlocales[j]
-                        = savepv(do_setlocale_r(categories[j], trial_locale));
+                if (trial_locale == NULL) {
+                    curlocales[j] = do_querylocale_r(categories[j]);
+                }
+                else {
+                    curlocales[j] = do_setlocale_r(categories[j], trial_locale);
+                }
                 if (! curlocales[j]) {
                     setlocale_failure = TRUE;
                 }
+                curlocales[j] = savepv(curlocales[j]);
                 DEBUG_LOCALE_INIT(categories[j], trial_locale, curlocales[j]);
             }
 
@@ -4817,12 +4861,13 @@ Perl__is_cur_LC_category_utf8(pTHX_ int category)
 
 #      else
 
-            MBTOWC_LOCK;
+            MBTOWC_LOCK_;
+            /* XXX combine posix with this */
             PERL_UNUSED_RESULT(mbtowc(&wc, NULL, 0));/* Reset any shift state */
             SETERRNO(0, 0);
             len = mbtowc(&wc, STR_WITH_LEN(REPLACEMENT_CHARACTER_UTF8));
             SAVE_ERRNO;
-            MBTOWC_UNLOCK;
+            MBTOWC_UNLOCK_;
 
 #      endif
 

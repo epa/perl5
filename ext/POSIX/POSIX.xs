@@ -3364,9 +3364,9 @@ mblen(s, n = ~0)
             memzero(&PL_mbrlen_ps, sizeof(PL_mbrlen_ps));
             RETVAL = 0;
 #else
-            MBLEN_LOCK;
+            MBLEN_LOCK_;
             RETVAL = mblen(NULL, 0);
-            MBLEN_UNLOCK;
+            MBLEN_UNLOCK_;
 #endif
         }
         else {  /* Not resetting state */
@@ -3386,9 +3386,9 @@ mblen(s, n = ~0)
 #else
                 /* Locking prevents races, but locales can be switched out
                  * without locking, so this isn't a cure all */
-                MBLEN_LOCK;
+                MBLEN_LOCK_;
                 RETVAL = mblen(string, len);
-                MBLEN_UNLOCK;
+                MBLEN_UNLOCK_;
 #endif
             }
         }
@@ -3415,9 +3415,9 @@ mbtowc(pwc, s, n = ~0)
             memzero(&PL_mbrtowc_ps, sizeof(PL_mbrtowc_ps));
             RETVAL = 0;
 #else
-            MBTOWC_LOCK;
+            MBTOWC_LOCK_;
             RETVAL = mbtowc(NULL, NULL, 0);
-            MBTOWC_UNLOCK;
+            MBTOWC_UNLOCK_;
 #endif
         }
         else {  /* Not resetting state */
@@ -3436,9 +3436,9 @@ mbtowc(pwc, s, n = ~0)
 #else
                 /* Locking prevents races, but locales can be switched out
                  * without locking, so this isn't a cure all */
-                MBTOWC_LOCK;
+                MBTOWC_LOCK_;
                 RETVAL = mbtowc(&wc, string, len);
-                MBTOWC_UNLOCK;
+                MBTOWC_UNLOCK_;
 #endif
                 if (RETVAL >= 0) {
                     sv_setiv_mg(pwc, wc);
@@ -3470,9 +3470,9 @@ wctomb(s, wchar)
              * But probably memzero would too */
             RETVAL = wcrtomb(NULL, L'\0', &PL_wcrtomb_ps);
 #else
-            WCTOMB_LOCK;
+            WCTOMB_LOCK_;
             RETVAL = wctomb(NULL, L'\0');
-            WCTOMB_UNLOCK;
+            WCTOMB_UNLOCK_;
 #endif
         }
         else {  /* Not resetting state */
@@ -3482,9 +3482,9 @@ wctomb(s, wchar)
 #else
             /* Locking prevents races, but locales can be switched out without
              * locking, so this isn't a cure all */
-            WCTOMB_LOCK;
+            WCTOMB_LOCK_;
             RETVAL = wctomb(buffer, wchar);
-            WCTOMB_UNLOCK;
+            WCTOMB_UNLOCK_;
 #endif
             if (RETVAL >= 0) {
                 sv_setpvn_mg(s, buffer, RETVAL);

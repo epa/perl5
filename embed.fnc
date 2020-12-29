@@ -3269,10 +3269,12 @@ STR	|char *	|setlocale_debug_string	|const int category		    \
 Cp	|bool	|_is_cur_LC_category_utf8|int category
 #endif
 
+#ifdef USE_LOCALE_CTYPE
 CpiRT	|int	|isblank_   |int c
 CpiRT	|int	|iscased_   |int c
 CpiRT	|int	|iswordchar_|int c
 CpiRT	|int	|call_clib_char_fcn_|const int classnum|const int character
+#endif
 
 #if defined(PERL_IN_UTIL_C)
 S	|SV*	|mess_alloc
