@@ -2259,6 +2259,7 @@ localeconv()
         }
 #  else
 #    ifdef TS_W32_BROKEN_LOCALECONV
+        /* XXX race? */
         Perl_setlocale(LC_ALL, save_global);
 
         _configthreadlocale(_ENABLE_PER_THREAD_LOCALE);
@@ -3497,6 +3498,12 @@ int
 strcoll(s1, s2)
 	char *		s1
 	char *		s2
+    CODE:
+        LC_COLLATE_LOCK;
+        RETVAL = strcoll(s1, s2);
+        LC_COLLATE_UNLOCK;
+    OUTPUT:
+        RETVAL
 
 void
 strtod(str)
@@ -3620,16 +3627,19 @@ strxfrm(src)
           srclen++;
           buflen = srclen * 4 + 1;
           ST(0) = sv_2mortal(newSV(buflen));
+          LC_COLLATE_LOCK;
           dstlen = strxfrm(SvPVX(ST(0)), p, (size_t)buflen);
           if (dstlen >= buflen) {
               dstlen++;
               SvGROW(ST(0), dstlen);
+              /* XXX buggy on cygwin old */
               strxfrm(SvPVX(ST(0)), p, (size_t)dstlen);
               dstlen--;
           }
           SvCUR_set(ST(0), dstlen);
-	    SvPOK_only(ST(0));
-	}
+	  SvPOK_only(ST(0));
+          LC_COLLATE_UNLOCK;
+        }
 
 SysRet
 mkfifo(filename, mode)

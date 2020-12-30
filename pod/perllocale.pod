@@ -218,6 +218,7 @@ affected, as follows:
 
 The current locale is used when going outside of Perl with
 operations like L<system()|perlfunc/system LIST> or
+XXX ouch!
 L<qxE<sol>E<sol>|perlop/qxE<sol>STRINGE<sol>>, if those operations are
 locale-sensitive.
 
@@ -227,6 +228,7 @@ Also Perl gives access to various C library functions through the
 L<POSIX> module.  Some of those functions are always affected by the
 current locale.  For example, C<POSIX::strftime()> uses C<LC_TIME>;
 C<POSIX::strtod()> uses C<LC_NUMERIC>; C<POSIX::strcoll()> and
+XXX complete list
 C<POSIX::strxfrm()> use C<LC_COLLATE>.  All such functions
 will behave according to the current underlying locale, even if that
 locale isn't exposed to Perl space.
@@ -264,6 +266,7 @@ These include:
 
 The output format of a L<write()|perlfunc/write> is determined by an
 earlier format declaration (L<perlfunc/format>), so whether or not the
+XXX
 output is affected by locale is determined by if the C<format()> is
 within the scope of a C<use locale>, not whether the C<write()>
 is.

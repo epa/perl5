@@ -176,11 +176,16 @@ S_stdize_locale(pTHX_ char *locs)
      * function removes the trailing new line and everything up through the '='
      * */
 
-    const char * const s = strchr(locs, '=');
+    const char * s = strchr(locs, ';');
     bool okay = TRUE;
 
     PERL_ARGS_ASSERT_STDIZE_LOCALE;
 
+    if (s) {
+        return locs;
+    }
+
+    s = strchr(locs, '=');
     if (s) {
 	const char * const t = strchr(s, '.');
 	okay = FALSE;
@@ -2431,33 +2436,37 @@ Perl_setlocale(const int category, const char * locale)
     retval = save_to_buffer(do_querylocale_r(category),
                                 &PL_setlocale_buf, &PL_setlocale_bufsize, 0);
 
+#  ifndef USE_THREAD_SAFE_LOCALE_EMULATION
+
     /* If the new locale  is the same as the current one, nothing is actually
      * being changed, so do nothing. */
     if (   strEQ(retval, locale)
 
-#  if defined(USE_LOCALE_NUMERIC)
+#    if defined(USE_LOCALE_NUMERIC)
 
         /* But the new LC_NUMERIC locale could actually be changing the
          * standard locale into the current underlying one, so must change that
          * so that our records get updated. */
         && (category != LC_NUMERIC || ! PL_numeric_underlying)
 
-#    if defined(LC_ALL)
+#      if defined(LC_ALL)
 
         /* And, if we are changing all categories, LC_NUMERIC may be getting
          * changed as well, so if it isn't also already the new locale, we
          * can't skip the change */
         && (category != LC_ALL || strEQ(locale, PL_numeric_name))
 
-#    endif
+#      endif
 
-#  endif
+#    endif
 
     ) {
         DEBUG_L(PerlIO_printf(Perl_debug_log, "%s:%d: underlying=%d\n", __FILE__, __LINE__, PL_numeric_underlying));
         SETLOCALE_UNLOCK;
         return retval;
     }
+
+#  endif
 
     retval = save_to_buffer(do_setlocale_r(category, locale),
                                 &PL_setlocale_buf, &PL_setlocale_bufsize, 0);
@@ -4343,7 +4352,9 @@ Perl__mem_collxfrm(pTHX_ const char *input_string,
      * give up */
     for (;;) {
 
+        LC_COLLATE_LOCK;
         *xlen = strxfrm(xbuf + COLLXFRM_HDR_LEN, s, xAlloc - COLLXFRM_HDR_LEN);
+        LC_COLLATE_UNLOCK;
 
         /* If the transformed string occupies less space than we told strxfrm()
          * was available, it means it successfully transformed the whole
@@ -4655,7 +4666,7 @@ S_restore_switched_locale(pTHX_ const int category,
 bool
 Perl__is_cur_LC_category_utf8(pTHX_ int category)
 {
-    /* Returns TRUE if the current locale for 'category' is UTF-8; FALSE
+    /* XXX examine Returns TRUE if the current locale for 'category' is UTF-8; FALSE
      * otherwise. 'category' may not be LC_ALL.  If the platform doesn't have
      * nl_langinfo(), nor MB_CUR_MAX, this employs a heuristic, which hence
      * could give the wrong result.  The result will very likely be correct for

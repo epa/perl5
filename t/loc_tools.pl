@@ -191,7 +191,7 @@ sub valid_locale_categories() {
 sub locales_enabled(;$) {
     # If no parameter is specified, the function returns 1 if there is any
     # "safe" locale handling available to the caller; otherwise 0.  Safeness
-    # is defined here as the caller operating in the main thread of a program,
+    # XXX is defined here as the caller operating in the main thread of a program,
     # or if threaded locales are safe on the platform and Configured to be
     # used.  This sub is used for testing purposes, and for those, this
     # definition of safety is sufficient, and necessary to get some tests to
