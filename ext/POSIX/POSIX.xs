@@ -2184,6 +2184,8 @@ localeconv()
 #  else
         LC_MONETARY_LOCK;    /* Prevent interference with other threads using
                                localeconv() */
+        /* XXX */
+        LOCALE_BASE_LOCK_(0);    /* Prevent interference with other threads using */
 #    ifdef TS_W32_BROKEN_LOCALECONV
         /* This is a workaround for a Windows bug prior to VS 15, in which
          * localeconv only looks at the global locale.  We toggle to the global
@@ -2269,6 +2271,7 @@ localeconv()
         Safefree(save_global);
         Safefree(save_thread);
 #    endif
+        LOCALE_BASE_UNLOCK_;
         LC_MONETARY_UNLOCK;
 #  endif
         RESTORE_LC_NUMERIC();
