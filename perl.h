@@ -6834,12 +6834,12 @@ the plain locale pragma without a parameter (S<C<use locale>>) is in effect.
 #  define MBLEN_LOCK_           NOOP
 #  define MBLEN_UNLOCK_         NOOP
 #endif
-# if defined(HAS_MBTOWC) && ! defined(HAS_MBRTOWC)
+#if defined(HAS_MBTOWC) && ! defined(HAS_MBRTOWC)
 #   define MBTOWC_LOCK_         LOCALE_LOCK_
 #   define MBTOWC_UNLOCK_       LOCALE_UNLOCK_
 #else
 #  define MBTOWC_LOCK_          NOOP
-#  define MBTOWC_UNLOCK         NOOP
+#  define MBTOWC_UNLOCK_        NOOP
 #endif
 #if defined(HAS_NL_LANGINFO) && (   ! defined(HAS_THREAD_SAFE_NL_LANGINFO_L) \
                                    || ! defined(HAS_POSIX_2008_LOCALE))
@@ -6854,7 +6854,7 @@ the plain locale pragma without a parameter (S<C<use locale>>) is in effect.
 #  define WCTOMB_UNLOCK_        LOCALE_UNLOCK_
 #else
 #  define WCTOMB_LOCK_          NOOP
-#  define WCTOMB_K_             NOOP
+#  define WCTOMB_UNLOCK_        NOOP
 #endif
 
 #ifdef USE_LOCALE_NUMERIC
@@ -7315,8 +7315,8 @@ cannot have changed since the precalculation.
  * But, create a different macro name just to indicate the ones that don't
  * actually depend on the environment, but are using its mutex for want of a
  * better one */
-#define gwLOCALE_r_LOCK             gwENVr_LOCALEr_LOCK
-#define gwLOCALE_r_UNLOCK           gwENVr_LOCALEr_UNLOCK
+#define gwLOCALEr_LOCK              gwENVr_LOCALEr_LOCK
+#define gwLOCALEr_UNLOCK            gwENVr_LOCALEr_UNLOCK
 
 #ifdef PERL_REENTR_USING_GETHOSTBYADDR_R
 #  define GETHOSTBYADDR_LOCK        ENVr_LOCALEr_LOCK
