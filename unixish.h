@@ -138,11 +138,14 @@ int afstat(int fd, struct stat *statb);
 #if defined(__amigaos4__)
 #  define PERL_SYS_INIT_BODY(c,v)					\
 	MALLOC_CHECK_TAINT2(*c,*v) PERL_FPU_INIT; PERLIO_INIT; MALLOC_INIT; amigaos4_init_fork_array(); amigaos4_init_environ_sema();
+
+/* New ones should be added first in the list, so that things that should be
+ * destroyed last remain last */
 #  define PERL_SYS_TERM_BODY()                         \
+    ENV_TERM; USER_PROP_MUTEX_TERM; LOCALE_TERM;       \
     HINTS_REFCNT_TERM; KEYWORD_PLUGIN_MUTEX_TERM;      \
     OP_CHECK_MUTEX_TERM; OP_REFCNT_TERM; PERLIO_TERM;  \
-    MALLOC_TERM; LOCALE_TERM; USER_PROP_MUTEX_TERM;    \
-    ENV_TERM;                                          \
+    MALLOC_TERM;                                       \
     amigaos4_dispose_fork_array();
 #endif
 
@@ -151,13 +154,27 @@ int afstat(int fd, struct stat *statb);
 	MALLOC_CHECK_TAINT2(*c,*v) PERL_FPU_INIT; PERLIO_INIT; MALLOC_INIT
 #endif
 
+/* New ones should be added first in the list, so that things that should be
+ * destroyed last remain last */
 #ifndef PERL_SYS_TERM_BODY
 #  define PERL_SYS_TERM_BODY()                         \
+    STMT_START {                \
+        /*char buf[1024];\
+        Size_t len = my_snprintf(buf, sizeof(buf), "%s: %d: Calling ENV_TERM\n",  __FILE__, __LINE__);  \
+        PERL_UNUSED_RESULT(PerlLIO_write(2, buf, len));*/\
+    ENV_TERM; \
+        /*len = my_snprintf(buf, sizeof(buf), "%s: %d: Calling USER\n",  __FILE__, __LINE__);  \
+        PERL_UNUSED_RESULT(PerlLIO_write(2, buf, len));*/\
+USER_PROP_MUTEX_TERM; \
+        /*len = my_snprintf(buf, sizeof(buf), "%s: %d: Calling LOCALE\n",  __FILE__, __LINE__);  \
+        PERL_UNUSED_RESULT(PerlLIO_write(2, buf, len));*/\
+LOCALE_TERM; \
+        /*len = my_snprintf(buf, sizeof(buf), "%s: %d: Calling KEYWORD\n",  __FILE__, __LINE__);  \
+        PERL_UNUSED_RESULT(PerlLIO_write(2, buf, len));*/\
     HINTS_REFCNT_TERM; KEYWORD_PLUGIN_MUTEX_TERM;      \
-    OP_CHECK_MUTEX_TERM; OP_REFCNT_TERM;  \
-    LOCALE_TERM; USER_PROP_MUTEX_TERM;    \
-    ENV_TERM; MALLOC_TERM; PERLIO_TERM; 
-
+    OP_CHECK_MUTEX_TERM; OP_REFCNT_TERM; PERLIO_TERM;  \
+    MALLOC_TERM;                \
+    } STMT_END
 #endif
 
 #define BIT_BUCKET "/dev/null"

@@ -237,7 +237,7 @@
 #  define MUTEX_DESTROY(m) \
     STMT_START {						\
 	int eC_;						\
-        dTHX;\
+        /*dTHX;*/\
 	if ((eC_ = pthread_mutex_destroy((m)))) {		\
             /*PerlIO_printf(Perl_debug_log,                          \
                                "%s: %d: eC_ =%d\n",          \
