@@ -75,6 +75,7 @@ my @dates;
 use Data::Dumper;
 $Data::Dumper::Sortkeys=1;
 $Data::Dumper::Useqq = 1;
+$Data::Dumper::Deepcopy = 1;
 
 sub add_trials($$)
 {
@@ -209,6 +210,17 @@ for my $i (1 .. $thread_count) {
                 push $tests[$i]->{$category}{locale_tests}->@*, \%temp;
            }
         }
+
+        # If still didn't get any results, as a last resort copy the previous
+        # one.
+        if (! exists $tests[$i]->{$category}{locale_tests}) {
+              $tests[$i  ]->{$category}{locale_name}
+            = $tests[$i-1]->{$category}{locale_name};
+
+              $tests[$i  ]->{$category}{locale_tests}
+            = $tests[$i-1]->{$category}{locale_tests};
+#print STDERR __FILE__, ": ", __LINE__, ": ", Dumper $category, $i, $tests[$i  ]->{$category};
+        }
     }
 }
 
@@ -237,7 +249,8 @@ my $starting_time = sprintf "%.16e", (time() + 1) * 1_000_000;
             my \$result = 1;
             my \@threads = map +threads->create(sub {
                 #print STDERR 'thread ', threads->tid, ' started, sleeping ', $starting_time - time() * 1_000_000, \" usec\\n\";
-                usleep($starting_time - time() * 1_000_000);
+                my \$sleep_time = $starting_time - time() * 1_000_000;
+                usleep(\$sleep_time) if \$sleep_time > 0;
                 threads->yield();
 
                 #print STDERR 'thread ', threads->tid, \" taking off\\n\";
