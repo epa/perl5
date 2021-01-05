@@ -87,7 +87,7 @@ we could just return false for utf8 locales
  * creation, so can be a file-level static.  (Must come before #including
  * perl.h) */
 #ifdef DEBUGGING
-static BOOL debug_initialization = 0;
+static int debug_initialization = 0;
 #  define DEBUG_INITIALIZATION_set(v) (debug_initialization = v)
 #  define DEBUG_LOCALE_INITIALIZATION_  debug_initialization
 #else
