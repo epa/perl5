@@ -15649,10 +15649,14 @@ perl_clone_using(PerlInterpreter *proto_perl, UV flags,
 #ifdef USE_LOCALE_CTYPE
     /* Should we warn if uses locale? */
     PL_warn_locale      = sv_dup_inc(proto_perl->Iwarn_locale, param);
+    PL_utf8locale             = FALSE;
+    PL_in_utf8_CTYPE_locale   = FALSE;
+    PL_in_utf8_turkic_locale  = FALSE;
 #endif
 
 #ifdef USE_LOCALE_COLLATE
     PL_collation_name	= SAVEPV(proto_perl->Icollation_name);
+    PL_in_utf8_COLLATE_locale = FALSE;
 #endif /* USE_LOCALE_COLLATE */
 
 #ifdef USE_LOCALE_NUMERIC

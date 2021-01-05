@@ -1,4 +1,5 @@
 /*    locale.c
+ *    XXX doesn't work with unthreaded 2008
  *
  *    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
  *    2002, 2003, 2005, 2006, 2007, 2008 by Larry Wall and others
@@ -86,7 +87,7 @@ we could just return false for utf8 locales
  * creation, so can be a file-level static.  (Must come before #including
  * perl.h) */
 #ifdef DEBUGGING
-static bool debug_initialization = 0;
+static BOOL debug_initialization = 0;
 #  define DEBUG_INITIALIZATION_set(v) (debug_initialization = v)
 #  define DEBUG_LOCALE_INITIALIZATION_  debug_initialization
 #else
