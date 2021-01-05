@@ -5086,7 +5086,7 @@ EXTCONST char PL_uudmap[256] =
 EXTCONST char PL_bitcount[256] =
 #  ifdef PERL_MICRO
 #    include "ubitcount.h"
-#else	/* ! DOINIT */
+#  else	/* ! DOINIT */
 #    include "bitcount.h"
 #  endif
 ;
@@ -5097,11 +5097,12 @@ EXTCONST int         PL_sig_num[]  = { SIG_NUM };
  * they can be referenced in the following array of function pointers, which
  * must come before the function that refers to it.  This could be worked
  * around, but not worth the effort */
-#ifndef PERL_NO_INLINE_FUNCTIONS
+#  ifdef USE_LOCALE_CTYPE
+#    ifndef PERL_NO_INLINE_FUNCTIONS
 PERL_STATIC_INLINE int	Perl_isblank_(int c);
 PERL_STATIC_INLINE int	Perl_iscased_(int c);
 PERL_STATIC_INLINE int	Perl_iswordchar_(int c);
-#endif
+#    endif
 
 /* C library calls for character classification, and at the end, changing case.
  * indexed by e.g., CC_ALPHA_.
@@ -5119,32 +5120,37 @@ EXT  int (*PL_clib_char_fcns[])(int) = {
     Perl_iscased_,
     isspace,
 
-#ifdef HAS_ISBLANK
+#    ifdef HAS_ISBLANK
     isblank,
-#else
+#    else
     Perl_isblank_,
-#endif
+#    endif
 
     isxdigit,
     iscntrl,
 
-#ifdef HAS_ISASCII
+#    ifdef HAS_ISASCII
     isascii,
-#else
+#    else
     NULL,   /* We shouldn't get here if fcn isn't on this platform */
-#endif
+#    endif
 
     tolower,
     toupper
 };
 
+#  endif
 #else
 
 EXTCONST char PL_uudmap[256];
 EXTCONST char PL_bitcount[256];
 EXTCONST char* const PL_sig_name[];
 EXTCONST int         PL_sig_num[];
+;
+
+#  ifdef USE_LOCALE_CTYPE
 EXT      int (*PL_clib_char_fcns[])(int);
+#  endif
 
 #endif
 
@@ -6814,18 +6820,30 @@ the plain locale pragma without a parameter (S<C<use locale>>) is in effect.
 #ifdef USE_LOCALE_COLLATE
 #  define LC_COLLATE_LOCK       LC_foo_LOCK_(COLLATE)
 #  define LC_COLLATE_UNLOCK     LC_foo_UNLOCK_(COLLATE)
+#else
+#  define LC_COLLATE_LOCK       NOOP
+#  define LC_COLLATE_UNLOCK     NOOP
 #endif
 #ifdef USE_LOCALE_CTYPE
 #  define LC_CTYPE_LOCK         LC_foo_LOCK_(CTYPE)
 #  define LC_CTYPE_UNLOCK       LC_foo_UNLOCK_(CTYPE)
+#else
+#  define LC_CTYPE_LOCK         NOOP
+#  define LC_CTYPE_UNLOCK       NOOP
 #endif
 #ifdef USE_LOCALE_MONETARY
 #  define LC_MONETARY_LOCK      LC_foo_LOCK_(MONETARY)
 #  define LC_MONETARY_UNLOCK    LC_foo_UNLOCK_(MONETARY)
+#else
+#  define LC_MONETARY_LOCK      NOOP
+#  define LC_MONETARY_UNLOCK    NOOP
 #endif
 #ifdef USE_LOCALE_TIME
 #  define LC_TIME_LOCK          LC_foo_LOCK_(TIME)
 #  define LC_TIME_UNLOCK        LC_foo_UNLOCK_(TIME)
+#else
+#  define LC_TIME_LOCK          NOOP
+#  define LC_TIME_UNLOCK        NOOP
 #endif
 #if defined(HAS_MBLEN) && ! defined(HAS_MBRLEN)
 #  define MBLEN_LOCK_           LOCALE_LOCK_

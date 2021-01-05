@@ -516,6 +516,8 @@ S_category_name(const int category)
 #elif ! defined(USE_POSIX_2008_LOCALE)                   \
    && ! defined(USE_THREAD_SAFE_LOCALE_EMULATION)
 
+#  ifdef USE_LOCALE
+
    /* Here, there are threads, and there is no support for thread-safe
     * operation.  This is a dangerous situation that somebody had to change the
     * default Configuration to achieve.  What we can do here is to make sure
@@ -535,12 +537,12 @@ S_less_dicey_setlocale(const int cat, const char * locale)
     return retval;
 }
 
-#  define do_setlocale_c(cat, locale)       S_less_dicey_setlocale(cat, locale)
-#  define do_setlocale_r(cat, locale)       do_setlocale_c(cat, locale)
+#    define do_setlocale_c(cat, locale)       S_less_dicey_setlocale(cat, locale)
+#    define do_setlocale_r(cat, locale)       do_setlocale_c(cat, locale)
 
-#  define do_querylocale_c(cat)             do_setlocale_c(cat, NULL)
-#  define do_querylocale_r(cat)             do_querylocale_c(cat)
-#  define do_querylocale_i(i)               do_querylocale_c(categories[i])
+#    define do_querylocale_c(cat)             do_setlocale_c(cat, NULL)
+#    define do_querylocale_r(cat)             do_querylocale_c(cat)
+#    define do_querylocale_i(i)               do_querylocale_c(categories[i])
 
 STATIC void
 S_less_dicey_void_setlocale(const int cat, const char * locale)
@@ -552,8 +554,8 @@ S_less_dicey_void_setlocale(const int cat, const char * locale)
     SETLOCALE_UNLOCK;
 }
 
-#  define do_void_setlocale_c(cat, locale)  S_less_dicey_void_setlocale(cat, locale)
-#  define do_void_setlocale_r(cat, locale)  do_void_setlocale_c(cat, locale)
+#    define do_void_setlocale_c(cat, locale)  S_less_dicey_void_setlocale(cat, locale)
+#    define do_void_setlocale_r(cat, locale)  do_void_setlocale_c(cat, locale)
 
 STATIC bool
 S_less_dicey_bool_setlocale(const int cat, const char * locale)
@@ -568,9 +570,9 @@ S_less_dicey_bool_setlocale(const int cat, const char * locale)
     return retval;
 }
 
-#  define do_bool_setlocale_c(cat, locale)  S_less_dicey_bool_setlocale(cat, locale)
-#  define do_bool_setlocale_r(cat, locale)  do_bool_setlocale_c(cat, locale)
-
+#    define do_bool_setlocale_c(cat, locale)  S_less_dicey_bool_setlocale(cat, locale)
+#    define do_bool_setlocale_r(cat, locale)  do_bool_setlocale_c(cat, locale)
+#  endif /* USE_SETLOCALE */
 #else
 
 /* Here, there are threads, and Perl is to provide some thread-safe locale

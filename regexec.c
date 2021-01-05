@@ -431,11 +431,22 @@ S_isFOO_lc(pTHX_ const U8 classnum, const U8 character)
     /* Returns a boolean as to whether or not 'character' is a member of the
      * Posix character class given by 'classnum' */
 
-    if (IN_UTF8_CTYPE_LOCALE) {
+#ifdef USE_LOCALE_CTYPE
+
+    if (IN_UTF8_CTYPE_LOCALE)
+
+#endif 
+
+    {
         return cBOOL(generic_isCC_(character, classnum));
     }
 
+#ifdef USE_LOCALE_CTYPE
+
     return cBOOL(call_clib_char_fcn_(classnum, character));
+
+#endif
+
 }
 
 PERL_STATIC_INLINE I32
