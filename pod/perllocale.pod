@@ -174,18 +174,6 @@ L</The setlocale function>.
 
 =head2 The C<"use locale"> pragma
 
-Starting in Perl 5.28, this pragma may be used in
-L<multi-threaded|threads> applications on systems that have thread-safe
-locale ability.  Some caveats apply, see L</Multi-threaded> below.  On
-systems without this capability, or in earlier Perls, do NOT use this
-pragma in scripts that have multiple L<threads|threads> active.  The
-locale in these cases is not local to a single thread.  Another thread
-may change the locale at any time, which could cause at a minimum that a
-given thread is operating in a locale it isn't expecting to be in.  On
-some platforms, segfaults can also occur.  The locale change need not be
-explicit; some operations cause perl to change the locale itself.  You
-are vulnerable simply by having done a S<C<"use locale">>.
-
 By default, Perl itself (outside the L<POSIX> module)
 ignores the current locale.  The S<C<use locale>>
 pragma tells Perl to use the current locale for some operations.
@@ -409,16 +397,8 @@ this, as described in L</Unicode and UTF-8>.
 
 =head2 The setlocale function
 
-WARNING!  Prior to Perl 5.28 or on a system that does not support
-thread-safe locale operations, do NOT use this function in a
-L<thread|threads>.  The locale will change in all other threads at the
-same time, and should your thread get paused by the operating system,
-and another started, that thread will not have the locale it is
-expecting.  On some platforms, there can be a race leading to segfaults
-if two threads call this function nearly simultaneously.  This warning
-does not apply on unthreaded builds, or on perls where
-C<${^SAFE_LOCALES}> exists and is non-zero; namely Perl 5.28 and later
-unthreaded or compiled to be locale-thread-safe.
+WARNING!  Caveats apply to using this function in a L<thread|threads>.
+See L</Multi-threaded operation>.
 
 You can switch locales as often as you wish at run time with the
 C<POSIX::setlocale()> function:
@@ -508,36 +488,40 @@ For further information about the categories, consult L<setlocale(3)>.
 
 =head2 Multi-threaded operation
 
-Beginning in Perl 5.28, multi-threaded locale operation is supported on
-systems that implement either the POSIX 2008 or Windows-specific
-thread-safe locale operations.  Many modern systems, such as various
-Unix variants and Darwin do have this.
+Multi-threaded locale operation is supported in later Perl versions.
+This started with Perl 5.28, and was extended in Perl 5.34.
 
-You can tell if using locales is safe on your system by looking at the
-read-only boolean variable C<${^SAFE_LOCALES}>.  The value is 1 if the
+The 5.28 support is limited to Windows Visual Studio 2005 and later, and
+on systems that implement the POSIX 2008 thread-safe locale operations.
+Many modern systems, such as many Unix variants and Darwin, have
+these.
+
+5.34 adds support for pure perl programs and those whose XS code is
+well-behaved (see below), by emulating thread-safe operation on
+platforms that don't actually have it.  This makes many programs
+portable that between 5.28 and 5.32 were not.
+
+The read-only boolean variable C<${^SAFE_LOCALES}> can be used to see if the particular Perl is .  The value is 1 if the
 perl is not threaded, or if it is using thread-safe locale operations.
+This variable is a lot less useful starting in 5.34.
 
-Thread-safe operations are supported in Windows starting in Visual Studio
-2005, and in systems compatible with POSIX 2008.  Some platforms claim
-to support POSIX 2008, but have buggy implementations, so that the hints
-files for compiling to run on them turn off attempting to use
-thread-safety.  C<${^SAFE_LOCALES}> will be 0 on them.
+Some platforms claim to support POSIX 2008, but have buggy
+implementations, so that the hints files for compiling to run on them
+turn off attempting to use that form of thread-safety.
+C<${^SAFE_LOCALES}> will be 0 on them.
 
-Be aware that writing a multi-threaded application will not be portable
-to a platform which lacks the native thread-safe locale support.  On
-systems that do have it, you automatically get this behavior for
-threaded perls, without having to do anything.  If for some reason, you
-don't want to use this capability (perhaps the POSIX 2008 support is
-buggy on your system), you can manually compile Perl to use the old
-non-thread-safe implementation by passing the argument
-C<-Accflags='-DNO_THREAD_SAFE_LOCALE'> to F<Configure>.
-Except on Windows, this will continue to use certain of the POSIX 2008
-functions in some situations.  If these are buggy, you can pass the
-following to F<Configure> instead or additionally:
+You automatically get thread-safe behavior for threaded perls, without
+having to do anything.  If for some reason, you don't want to use this
+capability (perhaps the POSIX 2008 support is buggy on your system), you
+can manually compile Perl to use the old non-thread-safe implementation
+by passing the argument C<-Accflags='-DNO_THREAD_SAFE_LOCALE'> to
+XXX
+F<Configure>.  Except on Windows, this will continue to use certain of
+the POSIX 2008 functions in some situations.  If these are buggy, you
+can pass the following to F<Configure> instead or additionally:
 C<-Accflags='-DNO_POSIX_2008_LOCALE'>.  This will also keep the code
-from using thread-safe locales.
-C<${^SAFE_LOCALES}> will be 0 on systems that turn off the thread-safe
-operations.
+from using thread-safe locales.  C<${^SAFE_LOCALES}> will be 0 on
+systems that turn off the thread-safe operations.
 
 Normally on unthreaded builds, the traditional C<setlocale()> is used
 and not the thread-safe locale functions.  You can force the use of these
@@ -1749,3 +1733,14 @@ see L<perlembed/Using embedded Perl with POSIX locales>.
 Jarkko Hietaniemi's original F<perli18n.pod> heavily hacked by Dominic
 Dunlop, assisted by the perl5-porters.  Prose worked over a bit by
 Tom Christiansen, and now maintained by Perl 5 porters.
+The locale will change in all other threads at the
+thread
+Prior to Perl 5.34 or on a system that does not support
+thread-safe locale operations, do NOT use this function in a
+same time, and should your thread get paused by the operating system,
+and another started, that thread will not have the locale it is
+expecting.  On some platforms, there can be a race leading to segfaults
+if two threads call this function nearly simultaneously.  This warning
+does not apply on unthreaded builds, or on perls where
+C<${^SAFE_LOCALES}> exists and is non-zero; namely Perl 5.28 and later
+unthreaded or compiled to be locale-thread-safe.

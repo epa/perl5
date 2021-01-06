@@ -6724,9 +6724,9 @@ the plain locale pragma without a parameter (S<C<use locale>>) is in effect.
                                 __FILE__, __LINE__, &PL_locale_mutex));*/  \
                                 } STMT_END
 
-   /* Now see if more than the basic locking is needed.  It isn't if the
-    * platform is using thread-safe locales and reentrant versions are
-    * available for all the listed functions */
+   /* Now see if more than the basic locking is needed.  It is if the
+    * platform isn't using thread-safe locales or any of the needed libc
+    * functions doesn't have a reentrant version */
 #  if (  ! defined(USE_THREAD_SAFE_LOCALE)                              \
        || (   defined(HAS_LOCALECONV)                                   \
            && (  ! defined(HAS_LOCALECONV_L)                            \

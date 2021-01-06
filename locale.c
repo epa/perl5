@@ -494,13 +494,14 @@ S_category_name(const int category)
  *    platform doesn't have the POSIX 2008 functions, and when there is no
  *    manual override in Configure.
  */
-#if    !  defined(USE_ITHREADS)                                 \
-    ||   (defined(WIN32) && defined(USE_THREAD_SAFE_LOCALE))
+#if    (! defined(USE_ITHREADS) && ! defined(USE_POSIX_2008))               \
+    || (  defined(WIN32) && defined(USE_THREAD_SAFE_LOCALE))
 
-  /* Here, we have an unthreaded perl, or a thread-safe Windows one in which
-   * threading is invisible to us.  Use the system setlocale().  Note that this
-   * means that on Windows, if a program has turned off thread-safety at run
-   * time, say by using switch_to_global locale(), races may occur. */
+  /* Here, we have an unthreaded perl (which we are not to use the POSIX 2008
+   * API on), or a thread-safe Windows one in which threading is invisible to
+   * us.  Use the system setlocale().  Note that this means that on Windows, if
+   * a program has turned off thread-safety at run time, say by using
+   * switch_to_global locale(), races may occur. */
 #  define do_setlocale_c(cat, locale)       my_setlocale(cat, locale)
 #  define do_setlocale_r(cat, locale)       my_setlocale(cat, locale)
 
@@ -576,11 +577,11 @@ S_less_dicey_bool_setlocale(const int cat, const char * locale)
 #  endif /* USE_SETLOCALE */
 #else
 
-/* Here, there are threads, and Perl is to provide some thread-safe locale
- * support.  The two cases are POSIX 2008, and our thread-safe emulation,
- * described in the introductory comments of this file.  What they have in
- * common is, except for systems with querylocale() which don't need this, a
- * mechanism to save and query the current locales for each category */
+/* Here, Perl is to use the POSIX 2008 system calls, or there are threads and
+ * Perl is supposed to provide our thread-safe emulation, described in the
+ * introductory comments of this file.  What the two have in common is, except
+ * for systems with querylocale() which don't need this, a mechanism to save
+ * and query the current locales for each category */
 
 #  if ! defined(USE_POSIX_2008) || ! defined(HAS_QUERYLOCALE)
 
@@ -642,19 +643,19 @@ typedef enum { WANT_VOID, WANT_BOOL, WANT_LOCALE } setlocale_returns;
 #    define do_querylocale_r(cat)                                              \
                             do_querylocale_i(S_get_category_index(cat, NULL))
 
-#      define LC_foo_INTERNAL_LOCK_(cat)                                             \
+#      define LC_foo_INTERNAL_LOCK_(cat)                                    \
         STMT_START {                                                        \
             const char * actual;                                            \
             const char * wanted;                                            \
                                                                             \
             LOCALE_LOCK_;                                                   \
-            actual = my_setlocale(LC_##cat, NULL);                             \
+            actual = my_setlocale(LC_##cat, NULL);                          \
             wanted = PL_curlocales[LC_##cat##_INDEX_];                      \
             DEBUG_Lv(PerlIO_printf(Perl_debug_log,                          \
                      "%s: %d: actual=%s, wanted=%s\n",                      \
                      __FILE__,  __LINE__, actual, wanted));                 \
             if (strNE(actual, wanted)) {                                    \
-                my_setlocale(LC_##cat, wanted);                           \
+                my_setlocale(LC_##cat, wanted);                             \
             }                                                               \
         } STMT_END
 
@@ -761,7 +762,7 @@ S_do_setlocale_i(pTHX_ const unsigned int cat_index, const char * locale,
 #    define do_void_setlocale_c(cat, locale)                                  \
                          ((void) emulate_setlocale(cat##_INDEX_, locale, 1))
 #    define do_bool_setlocale_c(cat, locale)                                  \
-                           cBOOL(emulate_setlocale(cat##_INDEX_, locale), 1)
+                           cBOOL(emulate_setlocale(cat##_INDEX_, locale, 1))
 
 #    define do_setlocale_r(cat, locale)                                       \
               emulate_setlocale(get_category_index(cat, locale), locale, 1)
@@ -3101,7 +3102,7 @@ S_my_nl_langinfo(const int item, bool toggle)
 
 #    endif
 
-                LOCALE_BASE_UNLOCK_(0);
+                LOCALE_BASE_UNLOCK_;
                 LC_MONETARY_INTERNAL_UNLOCK;
 
                 if (toggle) {
@@ -3994,17 +3995,14 @@ Perl_init_i18nl10n(pTHX_ int printwarn)
 
 #  if defined(USE_ITHREADS) && ! defined(USE_THREAD_SAFE_LOCALE)
 
-        /* This caches whether each category's locale is UTF-8 or not.  This
-         * may involve changing the locale.  It is ok to do this at
-         * initialization time before any threads have started, but not later
-         * unless thread-safe operations are used.
-         * Caching means that if the program heeds our dictate not to change
-         * locales in threaded applications, this data will remain valid, and
-         * it may get queried without having to change locales.  If the
-         * environment is such that all categories have the same locale, this
-         * isn't needed, as the code will not change the locale; but this
-         * handles the uncommon case where the environment has disparate
-         * locales for the categories */
+        /* This caches whether each category's locale is UTF-8 or not.  Caching
+         * means that if the program heeds our dictate not to change locales in
+         * threaded applications, this data will remain valid, and it may get
+         * queried without having to change locales.  If the environment is
+         * such that all categories have the same locale, this isn't needed, as
+         * the code will not change the locale; but this handles the uncommon
+         * XXX case where the environment has disparate locales for the categories
+         * */
         (void) _is_cur_LC_category_utf8(categories[i]);
 
 #  endif

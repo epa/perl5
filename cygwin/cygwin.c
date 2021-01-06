@@ -163,6 +163,7 @@ wide_to_utf8(const wchar_t *wbuf)
     char *buf;
     int wlen = 0;
     char *oldlocale;
+    dTHX;
 
     /* Here and elsewhere in this file, we have a critical section to prevent
      * another thread from changing the locale out from under us.  XXX But why
@@ -192,6 +193,7 @@ utf8_to_wide(const char *buf)
     mbstate_t mbs;
     char *oldlocale;
     int wlen = sizeof(wchar_t)*strlen(buf);
+    dTHX;
 
     SETLOCALE_LOCK;
 
@@ -306,6 +308,7 @@ XS(XS_Cygwin_win_to_posix_path)
 	if (!IN_BYTES) {
 	    mbstate_t mbs;
             char *oldlocale;
+            dTHX;
 
             SETLOCALE_LOCK;
 
@@ -397,6 +400,7 @@ XS(XS_Cygwin_posix_to_win_path)
 	wchar_t *wpath = (wchar_t *) safemalloc(sizeof(wchar_t)*len);
 	wchar_t *wbuf = (wchar_t *) safemalloc(wlen);
 	char *oldlocale;
+        dTHX;
 
         SETLOCALE_LOCK;
 
