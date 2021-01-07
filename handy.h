@@ -763,7 +763,7 @@ based on the underlying C library functions):
  * the current locale will use the tests that begin with "lc".
  */
 
-#ifdef HAS_SETLOCALE  /* XXX Is there a better test for this? */
+#ifdef USE_LOCALE
 #  ifndef CTYPE256
 #    define CTYPE256
 #  endif
@@ -1959,7 +1959,7 @@ END_EXTERN_C
 
 #if defined(WIN32) || defined(CTYPE256) || (   ! defined(isascii)         \
                                             && ! defined(HAS_ISASCII))
-    /* Here, we have some semblance of locale sanity, or just don't even
+    /* Here, we have some semblance of locale sanity, or just don't even have
      * isascii(), which is needed for the fallback, so this would be as good as
      * it gets. */
 #  define isCNTRL_LC(c)     generic_LC_(c, CC_CNTRL_, iscntrl)
@@ -2001,7 +2001,7 @@ END_EXTERN_C
                                                             && isALPHA_LC(c))
 #    define isXDIGIT_LC(c) (generic_LC_(c, CC_XDIGIT_, isxdigit)             \
                                                       && isALPHANUMERIC_LC(c))
-#    else /* For all other platforms with, as far as we know, sane locales that
+#  else /* For all other platforms with, as far as we know, sane locales that
            the isdigit(), etc functions operate on */
 
 #    define isALPHA_LC(c)         generic_LC_(c, CC_ALPHA_, isalpha)

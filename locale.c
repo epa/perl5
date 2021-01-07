@@ -494,7 +494,7 @@ S_category_name(const int category)
  *    platform doesn't have the POSIX 2008 functions, and when there is no
  *    manual override in Configure.
  */
-#if    (! defined(USE_ITHREADS) && ! defined(USE_POSIX_2008))               \
+#if    (! defined(USE_ITHREADS) && ! defined(USE_POSIX_2008_LOCALE))    \
     || (  defined(WIN32) && defined(USE_THREAD_SAFE_LOCALE))
 
   /* Here, we have an unthreaded perl (which we are not to use the POSIX 2008
@@ -583,7 +583,7 @@ S_less_dicey_bool_setlocale(const int cat, const char * locale)
  * for systems with querylocale() which don't need this, a mechanism to save
  * and query the current locales for each category */
 
-#  if ! defined(USE_POSIX_2008) || ! defined(HAS_QUERYLOCALE)
+#  if ! defined(USE_POSIX_2008_LOCALE) || ! defined(HAS_QUERYLOCALE)
 
 STATIC const char *
 S_query_PL_curlocales(const unsigned int index)
@@ -939,7 +939,7 @@ S_do_querylocale(const unsigned int index)
 
 STATIC
 const char *
-S_calculate_LC_ALL(pTHX, const char ** individ_locales)
+S_calculate_LC_ALL(pTHX_ const char ** individ_locales)
 {
     /* For POSIX 2008 without querylocale, we have to figure out LC_ALL
      * ourselves when needed.  This is based on the locale names stored in the
@@ -5814,7 +5814,7 @@ Perl_thread_locale_term()
 {
     /* Called from a thread as it gets ready to terminate */
 
-#ifdef USE_POSIX_2008
+#ifdef USE_POSIX_2008_LOCALE
 
     /* C starts the new thread in the global C locale.  If we are thread-safe,
      * we want to not be in the global locale */
